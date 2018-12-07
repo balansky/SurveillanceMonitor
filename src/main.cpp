@@ -1,11 +1,6 @@
 #include <iostream>
 #include <sstream>
-#include "opencv2/opencv.hpp"
 #include "detector.h"
-
-using namespace cv;
-using namespace cv::dnn;
-using namespace std;
 
 
 const char* params
@@ -61,7 +56,6 @@ int main(int argc, char** argv){
 
     for(;;){
         cap >> frame;
-        vector<Rect> bboxs = fDetector.detectFace(frame);
 //        for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
 //        {
 //            rectangle(frame, *bbox, Scalar(0, 255, 0));
@@ -69,6 +63,7 @@ int main(int argc, char** argv){
 
 
         if(mDetector.hasMotion(frame)){
+
             vector<vector<Point>> contours = mDetector.getCounters();
 //            drawContours (frame, contours, -1, cv::Scalar (0, 0, 255), 2);
             putText(frame, "Motion Detected", Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);

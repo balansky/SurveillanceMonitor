@@ -2,9 +2,7 @@
 // Created by andy on 26/11/18.
 //
 #include "detector.h"
-#include "opencv2/opencv.hpp"
 
-using namespace cv;
 
 MotionDetector::MotionDetector() {
 
@@ -20,7 +18,7 @@ bool MotionDetector::hasMotion(Mat & frame){
 
     morphologyEx( fgMaskMOG2, fgMaskMOG2, 2, element );
 
-    findContours (fgMaskMOG2, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+    findContours (fgMaskMOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
 
     for(int i = 0; i< contours.size(); i++) {
         if(contourArea(contours[i]) < 500) {
@@ -50,7 +48,7 @@ FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, flo
 
         meanVal(104.0, 177.0, 123.0), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
 
-    net = cv::dnn::readNet(caffeConfigFile, caffeWeightFile);
+    net = readNet(caffeConfigFile, caffeWeightFile);
 
 }
 

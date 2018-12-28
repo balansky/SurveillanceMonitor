@@ -3,6 +3,9 @@
 #include "detector.h"
 
 
+#define SSTR( x ) static_cast< std::ostringstream & >( \
+( std::ostringstream() << std::dec << x ) ).str()
+
 const char* params
         = "{ help           | false | print usage          }"
           "{ proto          |       | model configuration (deploy.prototxt) }"
@@ -11,6 +14,10 @@ const char* params
           "{ video          |       | video or image for detection }"
           "{ min_confidence | 0.5   | min confidence       }";
 
+
+void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetector &fDetector);
+
+void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector);
 
 
 int main(int argc, char** argv){
@@ -26,7 +33,6 @@ int main(int argc, char** argv){
     String modelBinary = parser.get<string>("model");
     auto confidenceThreshold = parser.get<float>("min_confidence");
 
-    Mat frame;
 
     MotionDetector mDetector;
     FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
@@ -51,7 +57,15 @@ int main(int argc, char** argv){
             return -1;
         }
     }
+//    detectMotionAndFace(cap, mDetector, fDetector);
+    trackDetectedFace(cap, fDetector);
 
+    return 0;
+}
+
+void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetector &fDetector){
+
+    Mat frame;
     namedWindow("Frame");
 
     for(;;){
@@ -80,6 +94,50 @@ int main(int argc, char** argv){
     }
     cap.release();
     destroyAllWindows();
-    return 0;
+
 }
 
+void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
+
+    Ptr<Tracker> tracker = TrackerMedianFlow::create();
+    bool detected = false;
+    Rect2d trackedBox;
+    Mat frame;
+    namedWindow("Frame");
+
+    for(;;){
+        cap >> frame;
+        double timer = (double)getTickCount();
+
+        if(!detected){
+
+            vector<Rect> bboxs = fDetector.detectFace(frame);
+            if(bboxs.size() > 0){
+//                rectangle(frame, bboxs[0], Scalar(0, 255, 0));
+                detected = tracker->init(frame, bboxs[0]);
+            }
+        }
+
+        else{
+            bool success = tracker->update(frame, trackedBox);
+            if(!success){
+                detected = false;
+                tracker = TrackerMedianFlow::create();
+            }
+            else{
+                rectangle(frame, trackedBox, Scalar(0, 255, 0));
+            }
+
+        }
+        float fps = getTickFrequency() / ((double)getTickCount() - timer);
+
+        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+        imshow("Frame", frame);
+        if(waitKey(30) >= 0) break;
+
+    }
+
+    cap.release();
+    destroyAllWindows();
+
+}

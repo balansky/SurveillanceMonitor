@@ -9,6 +9,7 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
 #include "opencv2/highgui.hpp"
+#include <opencv2/tracking.hpp>
 #include "opencv2/video/background_segm.hpp"
 
 using namespace cv;
@@ -33,7 +34,6 @@ public:
 class FaceDetector{
 private:
     const double inScaleFactor=1.0;
-//    const double inScaleFactor=0.00784;
     const float confidenceThreshold;
     const Size inSize;
     const Scalar meanVal;
@@ -45,5 +45,14 @@ public:
     vector<Rect> detectFace(Mat &frame);
 
 };
+
+//class Monitor{
+//private:
+//    MotionDetector motionDetector;
+//    FaceDetector faceDetector;
+//    Ptr<Tracker> tracker = TrackerMedianFlow::create();
+//    bool isInited = false;
+//
+//};
 
 #endif //PICAMERA_MOTION_H

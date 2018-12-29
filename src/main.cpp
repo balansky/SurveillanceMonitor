@@ -99,7 +99,7 @@ void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetec
 
 void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
 
-    Ptr<Tracker> tracker = TrackerMedianFlow::create();
+    Ptr<Tracker> tracker = TrackerMOSSE::create();
     bool detected = false;
     Rect2d trackedBox;
     Mat frame;
@@ -122,7 +122,7 @@ void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
             bool success = tracker->update(frame, trackedBox);
             if(!success){
                 detected = false;
-                tracker = TrackerMedianFlow::create();
+                tracker = TrackerMOSSE::create();
             }
             else{
                 rectangle(frame, trackedBox, Scalar(0, 255, 0));

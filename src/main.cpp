@@ -19,6 +19,7 @@ void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetec
 
 void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector);
 
+void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector);
 
 int main(int argc, char** argv){
     CommandLineParser parser(argc, argv, params);
@@ -58,7 +59,8 @@ int main(int argc, char** argv){
         }
     }
 //    detectMotionAndFace(cap, mDetector, fDetector);
-    trackDetectedFace(cap, fDetector);
+//    trackDetectedFace(cap, fDetector);
+    trackMultiFace(cap, fDetector);
 
     return 0;
 }
@@ -121,6 +123,7 @@ void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
         else{
             bool success = tracker->update(frame, trackedBox);
             if(!success){
+                cout << "fail detected!" << endl;
                 detected = false;
                 tracker = TrackerMOSSE::create();
             }
@@ -129,7 +132,59 @@ void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
             }
 
         }
-        float fps = getTickFrequency() / ((double)getTickCount() - timer);
+        double fps = getTickFrequency() / ((double)getTickCount() - timer);
+
+        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+        imshow("Frame", frame);
+        if(waitKey(30) >= 0) break;
+
+    }
+
+    cap.release();
+    destroyAllWindows();
+
+}
+
+void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector){
+
+    MultiTracker_Alt tracker;
+    bool detected = false;
+    Mat frame;
+    namedWindow("Frame");
+
+    for(;;){
+        cap >> frame;
+        double timer = (double)getTickCount();
+
+        if(!detected){
+
+            vector<Rect> bboxs = fDetector.detectFace(frame);
+            for(int i = 0; i < bboxs.size(); i++){
+                tracker.addTarget(frame, bboxs[i], TrackerMOSSE::create());
+
+            }
+            if(bboxs.size() > 0)
+                detected = true;
+
+        }
+
+        else{
+            bool success = tracker.update(frame);
+            if(!success){
+                cout << "fail tracked!" << endl;
+                detected = false;
+                tracker = MultiTracker_Alt();
+
+            }
+            else{
+                for(int i = 0; i < tracker.boundingBoxes.size(); i++){
+
+                    rectangle(frame, tracker.boundingBoxes[i], Scalar(0, 255, 0));
+                }
+            }
+
+        }
+        double fps = getTickFrequency() / ((double)getTickCount() - timer);
 
         putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
         imshow("Frame", frame);

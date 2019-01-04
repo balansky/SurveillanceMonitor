@@ -65,6 +65,7 @@ int main(int argc, char** argv){
     return 0;
 }
 
+
 void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetector &fDetector){
 
     Mat frame;

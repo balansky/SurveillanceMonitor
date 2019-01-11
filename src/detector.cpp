@@ -4,17 +4,21 @@
 #include "detector.h"
 
 
-MotionDetector::MotionDetector() {
+MotionChecker::MotionChecker() {
 
     pMOG2 = createBackgroundSubtractorMOG2();
     element = getStructuringElement(0, Size(3, 3), Point(1,1) );
 }
 
-
-bool MotionDetector::hasMotion(Mat & frame){
+void MotionChecker::updateBackground(Mat &frame){
 
     pMOG2->apply(frame, fgMaskMOG2);
     pMOG2->getBackgroundImage(bgMask);
+}
+
+bool MotionChecker::hasMotion(Mat & frame){
+
+    updateBackground(frame);
 
     morphologyEx( fgMaskMOG2, fgMaskMOG2, 2, element );
 
@@ -30,9 +34,65 @@ bool MotionDetector::hasMotion(Mat & frame){
 
 }
 
-vector<vector<Point>> MotionDetector::getCounters() {
+
+vector<vector<Point>> MotionChecker::getCounters() {
     return contours;
 }
+
+
+Surveillance::Surveillance(ObjectDetector* pDetector){
+    pDetector = pDetector;
+    pMotionChecker = new MotionChecker();
+}
+
+Surveillance::~Surveillance(){
+    delete pMotionChecker;
+}
+
+bool Surveillance::hasMotion(Mat &frame){
+    return pMotionChecker->hasMotion(frame);
+}
+
+bool Surveillance::trackTargets(Mat &frame){
+    vector<Rect> bboxs = pDetector->detect(frame);
+    for(int i = 0; i < bboxs.size(); i++){
+        tracker.addTarget(frame, bboxs[i], TrackerMedianFlow::create());
+    }
+    if(bboxs.size() == 0)
+        return true;
+    else
+        return false;
+}
+
+void Surveillance::surveilFrame(Mat &frame){
+    if(detected){
+        pMotionChecker->updateBackground(frame);
+        if(frameCnt % 30 == 0){
+            tracker = MultiTracker_Alt(); 
+            detected = trackTargets(frame);
+        } 
+        else{
+            detected = tracker.update(frame);
+            
+        }
+        if(detected){
+            for(int i = 0; i < tracker.boundingBoxes.size(); i++){
+
+                rectangle(frame, tracker.boundingBoxes[i], Scalar(0, 255, 0));
+            }
+        }
+
+    }
+    else{
+        if(motion){
+            motion = trackTargets(frame);
+        }
+        else{
+            motion = hasMotion(frame);
+        }
+    }
+}
+
 
 
 
@@ -53,7 +113,7 @@ FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, flo
 }
 
 
-vector<Rect> FaceDetector::detectFace(Mat &frame){
+vector<Rect> FaceDetector::detect(Mat &frame){
 
     vector<Rect> bboxs;
     Mat bgr;

@@ -15,11 +15,13 @@ const char* params
           "{ min_confidence | 0.5   | min confidence       }";
 
 
-void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetector &fDetector);
+void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector);
 
 void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector);
 
 void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector);
+
+void DetectFace(VideoCapture &cap, FaceDetector &fDetector);
 
 int main(int argc, char** argv){
     CommandLineParser parser(argc, argv, params);
@@ -35,9 +37,12 @@ int main(int argc, char** argv){
     auto confidenceThreshold = parser.get<float>("min_confidence");
 
 
-    MotionDetector mDetector;
-    FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
+    // MotionDetector mDetector;
+    // FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
 
+    FaceDetector * pDetector = new FaceDetector(modelConfiguration, modelBinary, confidenceThreshold);
+    Surveillance cam(pDetector);
+    
     VideoCapture cap;
     if (parser.get<String>("video").empty())
     {
@@ -58,15 +63,32 @@ int main(int argc, char** argv){
             return -1;
         }
     }
-//    detectMotionAndFace(cap, mDetector, fDetector);
-//    trackDetectedFace(cap, fDetector);
-    trackMultiFace(cap, fDetector);
+
+    Mat frame;
+    namedWindow("Frame");
+    for(;;){
+        cap >> frame;
+        if(cam.hasMotion(frame)){
+            cout << "Has Motion!" << endl;
+        }
+
+        imshow("Frame", frame);
+
+        if(waitKey(30) >= 0) break;
+    }
+
+    cap.release();
+    destroyAllWindows();
+    // DetectFace(cap, fDetector);
+    // detectMotionAndFace(cap, mDetector, fDetector);
+    // trackDetectedFace(cap, fDetector);
+    // trackMultiFace(cap, fDetector);
 
     return 0;
 }
 
 
-void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetector &fDetector){
+void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector){
 
     Mat frame;
     namedWindow("Frame");
@@ -84,7 +106,7 @@ void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetec
             vector<vector<Point>> contours = mDetector.getCounters();
 //            drawContours (frame, contours, -1, cv::Scalar (0, 0, 255), 2);
             putText(frame, "Motion Detected", Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
-            vector<Rect> bboxs = fDetector.detectFace(frame);
+            vector<Rect> bboxs = fDetector.detect(frame);
             for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
             {
                 rectangle(frame, *bbox, Scalar(0, 255, 0));
@@ -100,9 +122,39 @@ void detectMotionAndFace(VideoCapture &cap, MotionDetector &mDetector, FaceDetec
 
 }
 
+void DetectFace(VideoCapture &cap, FaceDetector &fDetector){
+
+    Rect2d trackedBox;
+    Mat frame;
+    namedWindow("Frame");
+
+    for(;;){
+        cap >> frame;
+        double timer = (double)getTickCount();
+
+        vector<Rect> bboxs = fDetector.detect(frame);
+        for(int i = 0; i < bboxs.size(); i++){
+            rectangle(frame, bboxs[i], Scalar(0, 255, 0));
+        }
+
+        double fps = getTickFrequency() / ((double)getTickCount() - timer);
+
+        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+        imshow("Frame", frame);
+        if(waitKey(30) >= 0) break;
+
+    }
+
+    cap.release();
+    destroyAllWindows();
+
+}
+
+
 void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
 
-    Ptr<Tracker> tracker = TrackerMOSSE::create();
+    // Ptr<Tracker> tracker = TrackerMOSSE::create();
+    Ptr<Tracker> tracker = TrackerTLD::create();
     bool detected = false;
     Rect2d trackedBox;
     Mat frame;
@@ -114,7 +166,7 @@ void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
 
         if(!detected){
 
-            vector<Rect> bboxs = fDetector.detectFace(frame);
+            vector<Rect> bboxs = fDetector.detect(frame);
             if(bboxs.size() > 0){
 //                rectangle(frame, bboxs[0], Scalar(0, 255, 0));
                 detected = tracker->init(frame, bboxs[0]);
@@ -126,7 +178,8 @@ void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
             if(!success){
                 cout << "fail detected!" << endl;
                 detected = false;
-                tracker = TrackerMOSSE::create();
+                // tracker = TrackerMOSSE::create();
+                tracker = TrackerTLD::create();
             }
             else{
                 rectangle(frame, trackedBox, Scalar(0, 255, 0));
@@ -159,7 +212,7 @@ void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector){
 
         if(!detected){
 
-            vector<Rect> bboxs = fDetector.detectFace(frame);
+            vector<Rect> bboxs = fDetector.detect(frame);
             for(int i = 0; i < bboxs.size(); i++){
                 tracker.addTarget(frame, bboxs[i], TrackerMOSSE::create());
 

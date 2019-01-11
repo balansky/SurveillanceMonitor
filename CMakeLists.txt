@@ -7,7 +7,7 @@ set(PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 
 file(GLOB_RECURSE SOURCE "src/*.cpp")
 
-find_package(OpenCV 4 REQUIRED )
+find_package(OpenCV 4 REQUIRED)
 
 message(${OpenCV_INCLUDE_DIRS})
 
@@ -15,4 +15,4 @@ include_directories(${PROJECT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
 
 add_executable(PiCamera src/main.cpp ${SOURCE})
 
-target_link_libraries( PiCamera ${OpenCV_LIBS} )
+target_link_libraries(PiCamera ${OpenCV_LIBS})

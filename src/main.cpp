@@ -1,10 +1,20 @@
-#include <iostream>
-#include <sstream>
-#include "detector.h"
-
+// #include <iostream>
+// #include <sstream>
+// #include "detector.h"
+#include "surveillance.h"
+#include <iomanip>
+#include <sys/stat.h>
+#include <errno.h>
+#include <ctime>
+#if defined(_WIN32)
+#include <direct.h>
+#endif
 
 #define SSTR( x ) static_cast< std::ostringstream & >( \
 ( std::ostringstream() << std::dec << x ) ).str()
+
+#define ISTR( x ) static_cast< std::ostringstream &> ( \
+( ostringstream() <<  setw(2) << setfill('0') << x)).str() 
 
 const char* params
         = "{ help           | false | print usage          }"
@@ -12,16 +22,21 @@ const char* params
           "{ model          |       | model weights (res10_300x300_ssd_iter_140000.caffemodel) }"
           "{ camera_device  | 0     | camera device number }"
           "{ video          |       | video or image for detection }"
+          "{ output         |       | video output directory }"
           "{ min_confidence | 0.5   | min confidence       }";
 
 
-void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector);
+// void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector);
 
-void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector);
+// void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector);
 
-void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector);
+// void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector);
 
-void DetectFace(VideoCapture &cap, FaceDetector &fDetector);
+// void DetectFace(VideoCapture &cap, FaceDetector &fDetector);
+
+bool isDirExist(const std::string& path);
+bool makePath(const std::string& path);
+void getCurrentDate(string res[]);
 
 int main(int argc, char** argv){
     CommandLineParser parser(argc, argv, params);
@@ -32,53 +47,73 @@ int main(int argc, char** argv){
         return 0;
     }
 
-    String modelConfiguration = parser.get<string>("proto");
-    String modelBinary = parser.get<string>("model");
-    auto confidenceThreshold = parser.get<float>("min_confidence");
-
-
-    // MotionDetector mDetector;
-    // FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
-
-    FaceDetector * pDetector = new FaceDetector(modelConfiguration, modelBinary, confidenceThreshold);
-    Surveillance cam(pDetector);
-    
-    VideoCapture cap;
-    if (parser.get<String>("video").empty())
-    {
-        int cameraDevice = parser.get<int>("camera_device");
-        cap = VideoCapture(cameraDevice);
-        if(!cap.isOpened())
-        {
-            cout << "Couldn't find camera: " << cameraDevice << endl;
-            return -1;
-        }
+    // String modelConfiguration = parser.get<string>("proto");
+    // String modelBinary = parser.get<string>("model");
+    // auto confidenceThreshold = parser.get<float>("min_confidence");
+    String outputDir = parser.get<string>("output");
+    int cameraDevice = parser.get<int>("camera_device");
+    string res [2];
+    getCurrentDate(res);
+    string dateDir = outputDir + "/" + res[0];
+    if(!makePath(dateDir)){
+        cout << "Create Directory Failed, Existed!" << endl;
+        return -1;
     }
-    else
-    {
-        cap.open(parser.get<String>("video"));
-        if(!cap.isOpened())
-        {
-            cout << "Couldn't open image or video: " << parser.get<String>("video") << endl;
-            return -1;
-        }
-    }
+    string outputPath = dateDir + "/" + res[1] + ".avi";
+    Surveillance *camera = new Surveillance(cameraDevice);
 
-    Mat frame;
     namedWindow("Frame");
     for(;;){
-        cap >> frame;
-        if(cam.hasMotion(frame)){
-            cout << "Has Motion!" << endl;
-        }
-
-        imshow("Frame", frame);
-
+        camera->record(outputPath);
+        imshow("Frame",camera->getFrame());
         if(waitKey(30) >= 0) break;
     }
-
-    cap.release();
+    delete camera; 
     destroyAllWindows();
+
+
+    // // MotionDetector mDetector;
+    // // FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
+
+    // FaceDetector * pDetector = new FaceDetector(modelConfiguration, modelBinary, confidenceThreshold);
+    // Surveillance cam(pDetector);
+    
+    // VideoCapture cap;
+    // if (parser.get<String>("video").empty())
+    // {
+    //     int cameraDevice = parser.get<int>("camera_device");
+    //     cap = VideoCapture(cameraDevice);
+    //     if(!cap.isOpened())
+    //     {
+    //         cout << "Couldn't find camera: " << cameraDevice << endl;
+    //         return -1;
+    //     }
+    // }
+    // else
+    // {
+    //     cap.open(parser.get<String>("video"));
+    //     if(!cap.isOpened())
+    //     {
+    //         cout << "Couldn't open image or video: " << parser.get<String>("video") << endl;
+    //         return -1;
+    //     }
+    // }
+
+    // Mat frame;
+    // namedWindow("Frame");
+    // for(;;){
+    //     cap >> frame;
+    //     if(cam.hasMotion(frame)){
+    //         cout << "Has Motion!" << endl;
+    //     }
+
+    //     imshow("Frame", frame);
+
+    //     if(waitKey(30) >= 0) break;
+    // }
+
+    // cap.release();
+    // destroyAllWindows();
     // DetectFace(cap, fDetector);
     // detectMotionAndFace(cap, mDetector, fDetector);
     // trackDetectedFace(cap, fDetector);
@@ -88,165 +123,239 @@ int main(int argc, char** argv){
 }
 
 
-void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector){
-
-    Mat frame;
-    namedWindow("Frame");
-
-    for(;;){
-        cap >> frame;
-//        for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
-//        {
-//            rectangle(frame, *bbox, Scalar(0, 255, 0));
-//        }
-
-
-        if(mDetector.hasMotion(frame)){
-
-            vector<vector<Point>> contours = mDetector.getCounters();
-//            drawContours (frame, contours, -1, cv::Scalar (0, 0, 255), 2);
-            putText(frame, "Motion Detected", Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
-            vector<Rect> bboxs = fDetector.detect(frame);
-            for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
-            {
-                rectangle(frame, *bbox, Scalar(0, 255, 0));
-            }
-
-        }
-        imshow("Frame", frame);
-
-        if(waitKey(30) >= 0) break;
-    }
-    cap.release();
-    destroyAllWindows();
-
+void getCurrentDate(string res[]){
+    time_t t = time(0);
+    struct tm * now = localtime(&t);
+    string year = to_string(now->tm_year + 1900);
+    string month = ISTR(now->tm_mon + 1);
+    string day = ISTR(now->tm_mday);
+    string hour = ISTR(now->tm_hour);
+    string minute = ISTR(now->tm_min);
+    string sec = ISTR(now->tm_sec);
+    res[0] = year + month + day;
+    res[1] = hour + "_" + minute + "_" + sec;
+    // return (to_string(now->tm_year + 1900) + to_string(now->tm_mon + 1) + to_string(now->tm_mday)); 
 }
 
-void DetectFace(VideoCapture &cap, FaceDetector &fDetector){
-
-    Rect2d trackedBox;
-    Mat frame;
-    namedWindow("Frame");
-
-    for(;;){
-        cap >> frame;
-        double timer = (double)getTickCount();
-
-        vector<Rect> bboxs = fDetector.detect(frame);
-        for(int i = 0; i < bboxs.size(); i++){
-            rectangle(frame, bboxs[i], Scalar(0, 255, 0));
-        }
-
-        double fps = getTickFrequency() / ((double)getTickCount() - timer);
-
-        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
-        imshow("Frame", frame);
-        if(waitKey(30) >= 0) break;
-
+bool isDirExist(const std::string& path)
+{
+#if defined(_WIN32)
+    struct _stat info;
+    if (_stat(path.c_str(), &info) != 0)
+    {
+        return false;
     }
-
-    cap.release();
-    destroyAllWindows();
-
+    return (info.st_mode & _S_IFDIR) != 0;
+#else 
+    struct stat info;
+    if (stat(path.c_str(), &info) != 0)
+    {
+        return false;
+    }
+    return (info.st_mode & S_IFDIR) != 0;
+#endif
 }
 
+bool makePath(const std::string& path)
+{
+#if defined(_WIN32)
+    int ret = _mkdir(path.c_str());
+#else
+    mode_t mode = 0755;
+    int ret = mkdir(path.c_str(), mode);
+#endif
+    if (ret == 0)
+        return true;
 
-void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
-
-    // Ptr<Tracker> tracker = TrackerMOSSE::create();
-    Ptr<Tracker> tracker = TrackerTLD::create();
-    bool detected = false;
-    Rect2d trackedBox;
-    Mat frame;
-    namedWindow("Frame");
-
-    for(;;){
-        cap >> frame;
-        double timer = (double)getTickCount();
-
-        if(!detected){
-
-            vector<Rect> bboxs = fDetector.detect(frame);
-            if(bboxs.size() > 0){
-//                rectangle(frame, bboxs[0], Scalar(0, 255, 0));
-                detected = tracker->init(frame, bboxs[0]);
-            }
+    switch (errno)
+    {
+    case ENOENT:
+        // parent didn't exist, try to create it
+        {
+            int pos = path.find_last_of('/');
+            if (pos == std::string::npos)
+#if defined(_WIN32)
+                pos = path.find_last_of('\\');
+            if (pos == std::string::npos)
+#endif
+                return false;
+            if (!makePath( path.substr(0, pos) ))
+                return false;
         }
+        // now, try to create again
+#if defined(_WIN32)
+        return 0 == _mkdir(path.c_str());
+#else 
+        return 0 == mkdir(path.c_str(), mode);
+#endif
 
-        else{
-            bool success = tracker->update(frame, trackedBox);
-            if(!success){
-                cout << "fail detected!" << endl;
-                detected = false;
-                // tracker = TrackerMOSSE::create();
-                tracker = TrackerTLD::create();
-            }
-            else{
-                rectangle(frame, trackedBox, Scalar(0, 255, 0));
-            }
+    case EEXIST:
+        // done!
+        return isDirExist(path);
 
-        }
-        double fps = getTickFrequency() / ((double)getTickCount() - timer);
-
-        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
-        imshow("Frame", frame);
-        if(waitKey(30) >= 0) break;
-
+    default:
+        return false;
     }
-
-    cap.release();
-    destroyAllWindows();
-
 }
+// void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector){
 
-void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector){
+//     Mat frame;
+//     namedWindow("Frame");
 
-    MultiTracker_Alt tracker;
-    bool detected = false;
-    Mat frame;
-    namedWindow("Frame");
+//     for(;;){
+//         cap >> frame;
+// //        for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
+// //        {
+// //            rectangle(frame, *bbox, Scalar(0, 255, 0));
+// //        }
 
-    for(;;){
-        cap >> frame;
-        double timer = (double)getTickCount();
 
-        if(!detected){
+//         if(mDetector.hasMotion(frame)){
 
-            vector<Rect> bboxs = fDetector.detect(frame);
-            for(int i = 0; i < bboxs.size(); i++){
-                tracker.addTarget(frame, bboxs[i], TrackerMOSSE::create());
+//             vector<vector<Point>> contours = mDetector.getCounters();
+// //            drawContours (frame, contours, -1, cv::Scalar (0, 0, 255), 2);
+//             putText(frame, "Motion Detected", Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
+//             vector<Rect> bboxs = fDetector.detect(frame);
+//             for(auto bbox = bboxs.cbegin(); bbox != bboxs.cend(); bbox++)
+//             {
+//                 rectangle(frame, *bbox, Scalar(0, 255, 0));
+//             }
 
-            }
-            if(bboxs.size() > 0)
-                detected = true;
+//         }
+//         imshow("Frame", frame);
 
-        }
+//         if(waitKey(30) >= 0) break;
+//     }
+//     cap.release();
+//     destroyAllWindows();
 
-        else{
-            bool success = tracker.update(frame);
-            if(!success){
-                cout << "fail tracked!" << endl;
-                detected = false;
-                tracker = MultiTracker_Alt();
+// }
 
-            }
-            else{
-                for(int i = 0; i < tracker.boundingBoxes.size(); i++){
+// void DetectFace(VideoCapture &cap, FaceDetector &fDetector){
 
-                    rectangle(frame, tracker.boundingBoxes[i], Scalar(0, 255, 0));
-                }
-            }
+//     Rect2d trackedBox;
+//     Mat frame;
+//     namedWindow("Frame");
 
-        }
-        double fps = getTickFrequency() / ((double)getTickCount() - timer);
+//     for(;;){
+//         cap >> frame;
+//         double timer = (double)getTickCount();
 
-        putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
-        imshow("Frame", frame);
-        if(waitKey(30) >= 0) break;
+//         vector<Rect> bboxs = fDetector.detect(frame);
+//         for(int i = 0; i < bboxs.size(); i++){
+//             rectangle(frame, bboxs[i], Scalar(0, 255, 0));
+//         }
 
-    }
+//         double fps = getTickFrequency() / ((double)getTickCount() - timer);
 
-    cap.release();
-    destroyAllWindows();
+//         putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+//         imshow("Frame", frame);
+//         if(waitKey(30) >= 0) break;
 
-}
+//     }
+
+//     cap.release();
+//     destroyAllWindows();
+
+// }
+
+
+// void trackDetectedFace(VideoCapture &cap, FaceDetector &fDetector){
+
+//     // Ptr<Tracker> tracker = TrackerMOSSE::create();
+//     Ptr<Tracker> tracker = TrackerTLD::create();
+//     bool detected = false;
+//     Rect2d trackedBox;
+//     Mat frame;
+//     namedWindow("Frame");
+
+//     for(;;){
+//         cap >> frame;
+//         double timer = (double)getTickCount();
+
+//         if(!detected){
+
+//             vector<Rect> bboxs = fDetector.detect(frame);
+//             if(bboxs.size() > 0){
+// //                rectangle(frame, bboxs[0], Scalar(0, 255, 0));
+//                 detected = tracker->init(frame, bboxs[0]);
+//             }
+//         }
+
+//         else{
+//             bool success = tracker->update(frame, trackedBox);
+//             if(!success){
+//                 cout << "fail detected!" << endl;
+//                 detected = false;
+//                 // tracker = TrackerMOSSE::create();
+//                 tracker = TrackerTLD::create();
+//             }
+//             else{
+//                 rectangle(frame, trackedBox, Scalar(0, 255, 0));
+//             }
+
+//         }
+//         double fps = getTickFrequency() / ((double)getTickCount() - timer);
+
+//         putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+//         imshow("Frame", frame);
+//         if(waitKey(30) >= 0) break;
+
+//     }
+
+//     cap.release();
+//     destroyAllWindows();
+
+// }
+
+// void trackMultiFace(VideoCapture &cap, FaceDetector &fDetector){
+
+//     MultiTracker_Alt tracker;
+//     bool detected = false;
+//     Mat frame;
+//     namedWindow("Frame");
+
+//     for(;;){
+//         cap >> frame;
+//         double timer = (double)getTickCount();
+
+//         if(!detected){
+
+//             vector<Rect> bboxs = fDetector.detect(frame);
+//             for(int i = 0; i < bboxs.size(); i++){
+//                 tracker.addTarget(frame, bboxs[i], TrackerMOSSE::create());
+
+//             }
+//             if(bboxs.size() > 0)
+//                 detected = true;
+
+//         }
+
+//         else{
+//             bool success = tracker.update(frame);
+//             if(!success){
+//                 cout << "fail tracked!" << endl;
+//                 detected = false;
+//                 tracker = MultiTracker_Alt();
+
+//             }
+//             else{
+//                 for(int i = 0; i < tracker.boundingBoxes.size(); i++){
+
+//                     rectangle(frame, tracker.boundingBoxes[i], Scalar(0, 255, 0));
+//                 }
+//             }
+
+//         }
+//         double fps = getTickFrequency() / ((double)getTickCount() - timer);
+
+//         putText(frame, "FPS : " + SSTR(int(fps)), Point(10,20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50,170,50), 2);
+//         imshow("Frame", frame);
+//         if(waitKey(30) >= 0) break;
+
+//     }
+
+//     cap.release();
+//     destroyAllWindows();
+
+// }

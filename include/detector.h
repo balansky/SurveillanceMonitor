@@ -16,21 +16,6 @@ using namespace cv;
 using namespace dnn;
 using namespace std;
 
-class MotionChecker{
-    private:
-        Mat fgMaskMOG2;
-        Mat bgMask;
-        Ptr<BackgroundSubtractor> pMOG2;
-        Mat element;
-        vector < vector < Point > >contours;
-
-    public:
-        MotionChecker();
-        bool hasMotion(Mat &frame);
-        void updateBackground(Mat &frame);
-        vector<vector<Point>> getCounters();
-
-};
 
 class ObjectDetector{
     public:
@@ -53,22 +38,5 @@ class FaceDetector: public ObjectDetector{
 
 };
 
-class Surveillance{
-    private:
-        MotionChecker* pMotionChecker;
-        ObjectDetector* pDetector;
-        MultiTracker_Alt tracker;
-        bool detected = false;
-        bool motion = false;
-        unsigned long frameCnt = 0;
-
-    public:
-        Surveillance(ObjectDetector* pDetector);
-        virtual ~Surveillance();
-        bool trackTargets(Mat &frame);
-        bool hasMotion(Mat &frame);
-        void surveilFrame(Mat &frame);
-
-};
 
 #endif //PICAMERA_MOTION_H

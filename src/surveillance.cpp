@@ -43,40 +43,41 @@ Mat Surveillance::getFrame(){
     return frame;
 }
 
+MotionSurveillance::MotionSurveillance(int cameraDevice) 
+    : Surveillance(cameraDevice){
+       pMOG2 = createBackgroundSubtractorMOG2(); 
+       element = getStructuringElement(0, Size(3, 3), Point(1,1) );
+}
 
-// Surveillance::Surveillance() {
 
-//     pMOG2 = createBackgroundSubtractorMOG2();
-//     element = getStructuringElement(0, Size(3, 3), Point(1,1) );
-// }
+void MotionSurveillance::updateBackground(){
 
-// void Surveillance::updateBackground(Mat &frame){
+    pMOG2->apply(getFrame(), fgMaskMOG2);
+    pMOG2->getBackgroundImage(bgMask);
+}
 
-//     pMOG2->apply(frame, fgMaskMOG2);
-//     pMOG2->getBackgroundImage(bgMask);
-// }
+bool MotionSurveillance::hasMotion(){
 
-// bool Surveillance::hasMotion(Mat & frame){
+    updateBackground();
 
-//     updateBackground(frame);
+    morphologyEx(fgMaskMOG2, fgMaskMOG2, 2, element);
 
-//     morphologyEx( fgMaskMOG2, fgMaskMOG2, 2, element );
+    findContours (fgMaskMOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
 
-//     findContours (fgMaskMOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+    for(int i = 0; i< contours.size(); i++) {
+        if(contourArea(contours[i]) < 500) {
+            continue;
+        }
+        return true;
+    }
+    return false;
 
-//     for(int i = 0; i< contours.size(); i++) {
-//         if(contourArea(contours[i]) < 500) {
-//             continue;
-//         }
-//         return true;
-//     }
-//     return false;
+}
 
-// }
 
-// vector<vector<Point>> Surveillance::getCounters() {
-//     return contours;
-// }
+vector<vector<Point>> MotionSurveillance::getCounters() {
+    return contours;
+}
 
 
 // Surveillance::Surveillance(ObjectDetector* pDetector){

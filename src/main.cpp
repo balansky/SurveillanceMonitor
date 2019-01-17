@@ -36,7 +36,8 @@ const char* params
 
 bool isDirExist(const std::string& path);
 bool makePath(const std::string& path);
-void getCurrentDate(string res[]);
+string parseDate(struct tm *now);
+string parseDateTime(struct tm *now);
 
 int main(int argc, char** argv){
     CommandLineParser parser(argc, argv, params);
@@ -52,14 +53,18 @@ int main(int argc, char** argv){
     // auto confidenceThreshold = parser.get<float>("min_confidence");
     String outputDir = parser.get<string>("output");
     int cameraDevice = parser.get<int>("camera_device");
-    string res [2];
-    getCurrentDate(res);
-    string dateDir = outputDir + "/" + res[0];
+
+    time_t t = time(0);
+    struct tm * now = localtime(&t);
+
+    string dateStr = parseDate(now);
+    string dateTimeStr = parseDateTime(now);
+    string dateDir = outputDir + "/" + dateStr;
     if(!makePath(dateDir)){
         cout << "Create Directory Failed, Existed!" << endl;
         return -1;
     }
-    string outputPath = dateDir + "/" + res[1] + ".avi";
+    string outputPath = dateDir + "/" +  dateTimeStr + ".avi";
     Surveillance *camera = new Surveillance(cameraDevice);
 
     namedWindow("Frame");
@@ -123,19 +128,20 @@ int main(int argc, char** argv){
 }
 
 
-void getCurrentDate(string res[]){
-    time_t t = time(0);
-    struct tm * now = localtime(&t);
+string parseDate(struct tm *now){
     string year = to_string(now->tm_year + 1900);
     string month = ISTR(now->tm_mon + 1);
     string day = ISTR(now->tm_mday);
+    return year + month + day;
+}
+
+string parseDateTime(struct tm *now){
     string hour = ISTR(now->tm_hour);
     string minute = ISTR(now->tm_min);
     string sec = ISTR(now->tm_sec);
-    res[0] = year + month + day;
-    res[1] = hour + "_" + minute + "_" + sec;
-    // return (to_string(now->tm_year + 1900) + to_string(now->tm_mon + 1) + to_string(now->tm_mday)); 
+    return hour + "_" + minute + "_" + sec;
 }
+
 
 bool isDirExist(const std::string& path)
 {

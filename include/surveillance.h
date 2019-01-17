@@ -28,11 +28,11 @@ class Surveillance{
         // MotionChecker* pMotionChecker;
         // ObjectDetector* pDetector;
         // MultiTracker_Alt tracker;
-        VideoCapture cap;
-        Mat frame;
         int frameWidth;
         int frameHeight;
         int frameRate;
+        VideoCapture cap;
+        Mat frame;
         VideoWriter *videoWriter = nullptr;
         // bool detected = false;
         // bool motion = false;
@@ -57,12 +57,12 @@ class MotionSurveillance: public Surveillance{
     
     public:
 
-        MotionSurveillance();
-        void updateBackground(Mat &frame);
+        MotionSurveillance(int cameraDevice);
+        void updateBackground();
         // bool trackTargets(Mat &frame);
-        bool hasMotion(Mat &frame);
+        bool hasMotion();
         vector<vector<Point>> getCounters();
-        virtual void start();
+        void record(string &outputPath);
 
 };
 

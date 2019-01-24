@@ -24,7 +24,7 @@ class SurveillanceException: public exception{
 
 
 class Surveillance{
-    private:
+    protected:
         // MotionChecker* pMotionChecker;
         // ObjectDetector* pDetector;
         // MultiTracker_Alt tracker;

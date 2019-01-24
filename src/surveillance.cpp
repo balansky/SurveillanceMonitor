@@ -31,6 +31,9 @@ void Surveillance::record(string &outputPath){
     if(!videoWriter){
         videoWriter = new VideoWriter(outputPath, VideoWriter::fourcc('M', 'J', 'P', 'G'), 
                                       frameRate, Size(frameWidth, frameHeight));
+        if(!videoWriter){
+            throw SurveillanceException("Could not open the output video file for write");
+        }
     }
     else{
 
@@ -52,7 +55,7 @@ MotionSurveillance::MotionSurveillance(int cameraDevice)
 
 void MotionSurveillance::updateBackground(){
 
-    pMOG2->apply(getFrame(), fgMaskMOG2);
+    pMOG2->apply(frame, fgMaskMOG2);
     pMOG2->getBackgroundImage(bgMask);
 }
 

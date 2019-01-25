@@ -2,19 +2,10 @@
 // #include <sstream>
 // #include "detector.h"
 #include "surveillance.h"
-#include <iomanip>
-#include <sys/stat.h>
-#include <errno.h>
-#include <ctime>
-#if defined(_WIN32)
-#include <direct.h>
-#endif
 
 #define SSTR( x ) static_cast< std::ostringstream & >( \
 ( std::ostringstream() << std::dec << x ) ).str()
 
-#define ISTR( x ) static_cast< std::ostringstream &> ( \
-( ostringstream() <<  setw(2) << setfill('0') << x)).str() 
 
 const char* params
         = "{ help           | false | print usage          }"
@@ -34,11 +25,6 @@ const char* params
 
 // void DetectFace(VideoCapture &cap, FaceDetector &fDetector);
 
-bool isDirExist(const std::string& path);
-bool makePath(const std::string& path);
-string parseDate(struct tm *now);
-string parseDateTime(struct tm *now);
-
 int main(int argc, char** argv){
     CommandLineParser parser(argc, argv, params);
 
@@ -54,27 +40,18 @@ int main(int argc, char** argv){
     String outputDir = parser.get<string>("output");
     int cameraDevice = parser.get<int>("camera_device");
 
-    time_t t = time(0);
-    struct tm * now = localtime(&t);
+    // Surveillance *camera = new Surveillance(outputDir, cameraDevice);
+    Surveillance *camera = new MotionSurveillance(outputDir, cameraDevice);
 
-    string dateStr = parseDate(now);
-    string dateTimeStr = parseDateTime(now);
-    string dateDir = outputDir + "/" + dateStr;
-    if(!makePath(dateDir)){
-        cout << "Create Directory Failed, Existed!" << endl;
-        return -1;
-    }
-    string outputPath = dateDir + "/" +  dateTimeStr + ".avi";
-    Surveillance *camera = new Surveillance(cameraDevice);
-
-    namedWindow("Frame");
-    for(;;){
-        camera->record(outputPath);
-        imshow("Frame",camera->getFrame());
-        if(waitKey(30) >= 0) break;
-    }
-    delete camera; 
-    destroyAllWindows();
+    camera -> start(true);
+    // namedWindow("Frame");
+    // for(;;){
+    //     camera->record(outputPath);
+    //     imshow("Frame",camera->getFrame());
+    //     if(waitKey(30) >= 0) break;
+    // }
+    // delete camera; 
+    // destroyAllWindows();
 
 
     // // MotionDetector mDetector;
@@ -128,81 +105,9 @@ int main(int argc, char** argv){
 }
 
 
-string parseDate(struct tm *now){
-    string year = to_string(now->tm_year + 1900);
-    string month = ISTR(now->tm_mon + 1);
-    string day = ISTR(now->tm_mday);
-    return year + month + day;
-}
-
-string parseDateTime(struct tm *now){
-    string hour = ISTR(now->tm_hour);
-    string minute = ISTR(now->tm_min);
-    string sec = ISTR(now->tm_sec);
-    return hour + "_" + minute + "_" + sec;
-}
 
 
-bool isDirExist(const std::string& path)
-{
-#if defined(_WIN32)
-    struct _stat info;
-    if (_stat(path.c_str(), &info) != 0)
-    {
-        return false;
-    }
-    return (info.st_mode & _S_IFDIR) != 0;
-#else 
-    struct stat info;
-    if (stat(path.c_str(), &info) != 0)
-    {
-        return false;
-    }
-    return (info.st_mode & S_IFDIR) != 0;
-#endif
-}
 
-bool makePath(const std::string& path)
-{
-#if defined(_WIN32)
-    int ret = _mkdir(path.c_str());
-#else
-    mode_t mode = 0755;
-    int ret = mkdir(path.c_str(), mode);
-#endif
-    if (ret == 0)
-        return true;
-
-    switch (errno)
-    {
-    case ENOENT:
-        // parent didn't exist, try to create it
-        {
-            int pos = path.find_last_of('/');
-            if (pos == std::string::npos)
-#if defined(_WIN32)
-                pos = path.find_last_of('\\');
-            if (pos == std::string::npos)
-#endif
-                return false;
-            if (!makePath( path.substr(0, pos) ))
-                return false;
-        }
-        // now, try to create again
-#if defined(_WIN32)
-        return 0 == _mkdir(path.c_str());
-#else 
-        return 0 == mkdir(path.c_str(), mode);
-#endif
-
-    case EEXIST:
-        // done!
-        return isDirExist(path);
-
-    default:
-        return false;
-    }
-}
 // void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector){
 
 //     Mat frame;

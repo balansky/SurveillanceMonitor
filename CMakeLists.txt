@@ -14,6 +14,6 @@ find_package(OpenCV 4 REQUIRED)
 include_directories(${PROJECT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
 
 # add_executable(PiCamera src/main.cpp ${SOURCE})
-add_executable(PiCamera src/main.cpp src/surveillance.cpp)
+add_executable(PiCamera src/main.cpp src/surveillance.cpp src/utils.cpp)
 
 target_link_libraries(PiCamera ${OpenCV_LIBS})

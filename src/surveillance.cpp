@@ -1,4 +1,5 @@
 #include "surveillance.h"
+#include "utils.h"
 
 
 SurveillanceException::SurveillanceException(const string& msg):m_msg(msg){
@@ -10,7 +11,7 @@ const char* SurveillanceException::what() const throw(){
 }
 
 
-Surveillance::Surveillance(int cameraDevice){
+Surveillance::Surveillance(string output, int cameraDevice){
     cap = VideoCapture(cameraDevice);
     if(!cap.isOpened())
     {
@@ -19,26 +20,66 @@ Surveillance::Surveillance(int cameraDevice){
     frameWidth = cap.get(CAP_PROP_FRAME_WIDTH);
     frameHeight = cap.get(CAP_PROP_FRAME_HEIGHT);
     frameRate = cap.get(CAP_PROP_FPS); 
+    outputDir = output;
 }
 
 Surveillance::~Surveillance(){
     cap.release();
     delete videoWriter;
+    delete nowInfo;
 }
 
-void Surveillance::record(string &outputPath){
-    cap >> frame;
-    if(!videoWriter){
+void Surveillance::writeFrame(){
+    if(!videoWriter || nowInfo->tm_mday != nowDay){
+
+        if(videoWriter){
+            delete videoWriter;
+            videoWriter = nullptr;
+        }
+        string dateDir = outputDir + "/" + parseDate(nowInfo);
+
+        if(!makePath(dateDir)){
+            throw SurveillanceException("Create Directory Failed, Existed!");
+        }
+
+        string outputPath = dateDir + "/" +  parseDateTime(nowInfo) + ".avi";
+
         videoWriter = new VideoWriter(outputPath, VideoWriter::fourcc('M', 'J', 'P', 'G'), 
-                                      frameRate, Size(frameWidth, frameHeight));
+                                    frameRate, Size(frameWidth, frameHeight));
         if(!videoWriter){
             throw SurveillanceException("Could not open the output video file for write");
         }
-    }
-    else{
 
-        videoWriter->write(frame);
     }
+    videoWriter->write(frame);
+}
+
+void Surveillance::updateTime(){
+    time(&now);
+    nowInfo = localtime(&now);
+}
+
+void Surveillance::record(){
+    writeFrame();
+}
+
+void Surveillance::start(bool show){
+    updateTime();
+    nowDay = nowInfo ->tm_mday;
+    if(show){
+        namedWindow("Camera");
+    }
+    for(;;){
+        cap >> frame;
+        record();
+        if(show){
+            imshow("Camera", frame);
+        }
+        updateTime();
+        if(waitKey(30) >= 0) break;
+    } 
+    
+    destroyAllWindows();
 
 }
 
@@ -46,10 +87,13 @@ Mat Surveillance::getFrame(){
     return frame;
 }
 
-MotionSurveillance::MotionSurveillance(int cameraDevice) 
-    : Surveillance(cameraDevice){
+MotionSurveillance::MotionSurveillance(string output, int cameraDevice, int delaySec) 
+    : Surveillance(output, cameraDevice){
        pMOG2 = createBackgroundSubtractorMOG2(); 
        element = getStructuringElement(0, Size(3, 3), Point(1,1) );
+       motionDelay = delaySec * frameRate;
+       motionFails = 0;
+       motionDetected = false;
 }
 
 
@@ -77,9 +121,32 @@ bool MotionSurveillance::hasMotion(){
 
 }
 
-
 vector<vector<Point>> MotionSurveillance::getCounters() {
     return contours;
+}
+
+void MotionSurveillance::record(){
+    bool has_motion = hasMotion();
+
+    if(has_motion){
+        if(!motionDetected){
+            motionDetected = true;
+            writeFrame();
+        }
+
+    }
+    else if(motionDetected){
+        if(motionFails < motionDelay){
+            ++motionFails;
+            writeFrame();
+        }
+        else{
+            motionDetected = false;
+            motionFails = 0; 
+            delete videoWriter;
+            videoWriter = nullptr;
+        }
+    }
 }
 
 

@@ -7,6 +7,7 @@
 #include "opencv2/video/background_segm.hpp"
 #include <iostream>
 #include <string>
+#include <time.h>
 
 using namespace cv;
 using namespace std;
@@ -31,6 +32,10 @@ class Surveillance{
         int frameWidth;
         int frameHeight;
         int frameRate;
+        int nowDay;
+        time_t now;
+        struct tm * nowInfo;
+        string outputDir;
         VideoCapture cap;
         Mat frame;
         VideoWriter *videoWriter = nullptr;
@@ -39,10 +44,14 @@ class Surveillance{
         // unsigned long frameCnt = 0;
 
     public:
-        Surveillance(int cameraDevice);
+        Surveillance(string output, int cameraDevice = 0);
         virtual ~Surveillance();
-        virtual void record(string &outputPath);
+        virtual void createWriter();
+        virtual void writeFrame();
+        virtual void record();
+        virtual void start(bool show = false);
         Mat getFrame();
+        void updateTime();
 
 };
 
@@ -54,15 +63,18 @@ class MotionSurveillance: public Surveillance{
         Ptr<BackgroundSubtractor> pMOG2;
         Mat element;
         vector <vector<Point>>contours;
+        int motionDelay;
+        int motionFails;
+        bool motionDetected;
     
     public:
 
-        MotionSurveillance(int cameraDevice);
+        MotionSurveillance(string output, int cameraDevice = 0, int delaySec = 10);
         void updateBackground();
         // bool trackTargets(Mat &frame);
         bool hasMotion();
         vector<vector<Point>> getCounters();
-        void record(string &outputPath);
+        void record();
 
 };
 

@@ -1,17 +1,32 @@
 #include "utils.h"
 
-string parseDate(struct tm *now){
-    string year = to_string(now->tm_year + 1900);
-    string month = ISTR(now->tm_mon + 1);
-    string day = ISTR(now->tm_mday);
-    return year + month + day;
+int parseDate(struct tm *now, char *buffer, const char *format){
+    int year = now->tm_year + 1900;
+    int month = now->tm_mon + 1;
+    int day = now->tm_mday;
+
+    int n = sprintf(buffer, format, year, month, day);
+    return n;
+
+    // string ll(buffer);
+    // string year = to_string(now->tm_year + 1900);
+    // string month = ISTR(now->tm_mon + 1);
+    // string day = ISTR(now->tm_mday);
+    // return year + month + day;
+
 }
 
-string parseDateTime(struct tm *now){
-    string hour = ISTR(now->tm_hour);
-    string minute = ISTR(now->tm_min);
-    string sec = ISTR(now->tm_sec);
-    return hour + "_" + minute + "_" + sec;
+int parseDateTime(struct tm *now, char *buffer, const char *format){
+    int hour = now->tm_hour;
+    int minute = now->tm_min;
+    int sec = now->tm_sec;
+
+    int n = sprintf(buffer, format, hour, minute, sec);
+    return n;
+//     string hour = ISTR(now->tm_hour);
+//     string minute = ISTR(now->tm_min);
+//     string sec = ISTR(now->tm_sec);
+//     return hour + "_" + minute + "_" + sec;
 }
 
 bool isDirExist(const string& path)

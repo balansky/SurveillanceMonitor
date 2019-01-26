@@ -5,6 +5,8 @@
 #include "opencv2/videoio.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/video/background_segm.hpp"
+#include "opencv2/tracking.hpp"
+#include "detector.h"
 #include <iostream>
 #include <string>
 #include <time.h>
@@ -35,6 +37,8 @@ class Surveillance{
         int nowDay;
         time_t now;
         struct tm * nowInfo;
+        char dateBuffer[11];
+        char datetimeBuffer[9];
         string outputDir;
         VideoCapture cap;
         Mat frame;
@@ -46,7 +50,6 @@ class Surveillance{
     public:
         Surveillance(string output, int cameraDevice = 0);
         virtual ~Surveillance();
-        virtual void createWriter();
         virtual void writeFrame();
         virtual void record();
         virtual void start(bool show = false);
@@ -56,6 +59,10 @@ class Surveillance{
 };
 
 class MotionSurveillance: public Surveillance{
+    protected:
+        int motionDelay;
+        int motionFails;
+        bool motionDetected;
 
     private:
         Mat fgMaskMOG2;
@@ -63,9 +70,7 @@ class MotionSurveillance: public Surveillance{
         Ptr<BackgroundSubtractor> pMOG2;
         Mat element;
         vector <vector<Point>>contours;
-        int motionDelay;
-        int motionFails;
-        bool motionDetected;
+        double threshold;
     
     public:
 
@@ -74,7 +79,25 @@ class MotionSurveillance: public Surveillance{
         // bool trackTargets(Mat &frame);
         bool hasMotion();
         vector<vector<Point>> getCounters();
-        void record();
+        virtual void record();
+
+};
+
+class FaceSurveillance: public MotionSurveillance{
+    private:
+        ObjectDetector *detector;
+        MultiTracker_Alt *tracker;
+        int detectFreq;
+        int trackCount;
+        bool faceTracked;
+    
+    public:
+        FaceSurveillance(string output, string proto, string binary, float minConfidence=0.5, int detectFeq=10, int cameraDevice=0, int delaySec = 10);
+        ~FaceSurveillance();
+        void drawBBox();
+        void resetTracker();
+        void trackFace();
+        virtual void record();
 
 };
 

@@ -5,9 +5,6 @@
 
 
 
-
-
-
 //FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
 //
 //          meanVal(127.5, 127.5, 127.5), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
@@ -23,7 +20,6 @@ FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, flo
     net = readNet(caffeConfigFile, caffeWeightFile);
 
 }
-
 
 vector<Rect> FaceDetector::detect(Mat &frame){
 

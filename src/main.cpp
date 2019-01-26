@@ -3,8 +3,6 @@
 // #include "detector.h"
 #include "surveillance.h"
 
-#define SSTR( x ) static_cast< std::ostringstream & >( \
-( std::ostringstream() << std::dec << x ) ).str()
 
 
 const char* params
@@ -41,9 +39,10 @@ int main(int argc, char** argv){
     int cameraDevice = parser.get<int>("camera_device");
 
     // Surveillance *camera = new Surveillance(outputDir, cameraDevice);
-    Surveillance *camera = new MotionSurveillance(outputDir, cameraDevice);
+    // Surveillance *camera = new MotionSurveillance(outputDir, cameraDevice);
+    MotionSurveillance camera(outputDir, cameraDevice);
 
-    camera -> start(true);
+    camera.start(true);
     // namedWindow("Frame");
     // for(;;){
     //     camera->record(outputPath);

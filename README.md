@@ -19,8 +19,8 @@ Surveillance System to Automatically Track and Detect Face.
 - [x] Face Tracking
 
 ### Further Features
-- [] Face Recognition
-- [] Object Detection and Tracking
-- [] Action Detection
+- [ ] Face Recognition
+- [ ] Object Detection and Tracking
+- [ ] Action Detection
 
 

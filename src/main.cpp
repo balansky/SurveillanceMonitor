@@ -1,18 +1,15 @@
-// #include <iostream>
-// #include <sstream>
-// #include "detector.h"
 #include "surveillance.h"
-
-
+#include "PiCamera.h"
 
 const char* params
         = "{ help           | false | print usage          }"
-          "{ proto          |       | model configuration (deploy.prototxt) }"
-          "{ model          |       | model weights (res10_300x300_ssd_iter_140000.caffemodel) }"
+        //   "{ proto          | MODEL_PROTO      | model configuration (deploy.prototxt) }"
+        //   "{ model          | MODEL_BINARY     | model weights (res10_300x300_ssd_iter_140000.caffemodel) }"
           "{ camera_device  | 0     | camera device number }"
           "{ video          |       | video or image for detection }"
           "{ output         |       | video output directory }"
-          "{ min_confidence | 0.5   | min confidence       }";
+          "{ min_confidence | 0.5   | min confidence       }"
+          "{ show           | false | show video output    }";
 
 
 // void detectMotionAndFace(VideoCapture &cap, MotionChecker &mDetector, FaceDetector &fDetector);
@@ -34,71 +31,17 @@ int main(int argc, char** argv){
 
     // String modelConfiguration = parser.get<string>("proto");
     // String modelBinary = parser.get<string>("model");
-    // auto confidenceThreshold = parser.get<float>("min_confidence");
+    auto confidenceThreshold = parser.get<float>("min_confidence");
     String outputDir = parser.get<string>("output");
     int cameraDevice = parser.get<int>("camera_device");
+    bool showOutput = parser.get<bool>("show");
 
     // Surveillance *camera = new Surveillance(outputDir, cameraDevice);
     // Surveillance *camera = new MotionSurveillance(outputDir, cameraDevice);
-    MotionSurveillance camera(outputDir, cameraDevice);
+    // MotionSurveillance camera(outputDir, cameraDevice);
+    FaceSurveillance camera(outputDir, MODEL_PROTO, MODEL_BINARY, confidenceThreshold, cameraDevice=cameraDevice);
 
-    camera.start(true);
-    // namedWindow("Frame");
-    // for(;;){
-    //     camera->record(outputPath);
-    //     imshow("Frame",camera->getFrame());
-    //     if(waitKey(30) >= 0) break;
-    // }
-    // delete camera; 
-    // destroyAllWindows();
-
-
-    // // MotionDetector mDetector;
-    // // FaceDetector fDetector(modelConfiguration, modelBinary, confidenceThreshold);
-
-    // FaceDetector * pDetector = new FaceDetector(modelConfiguration, modelBinary, confidenceThreshold);
-    // Surveillance cam(pDetector);
-    
-    // VideoCapture cap;
-    // if (parser.get<String>("video").empty())
-    // {
-    //     int cameraDevice = parser.get<int>("camera_device");
-    //     cap = VideoCapture(cameraDevice);
-    //     if(!cap.isOpened())
-    //     {
-    //         cout << "Couldn't find camera: " << cameraDevice << endl;
-    //         return -1;
-    //     }
-    // }
-    // else
-    // {
-    //     cap.open(parser.get<String>("video"));
-    //     if(!cap.isOpened())
-    //     {
-    //         cout << "Couldn't open image or video: " << parser.get<String>("video") << endl;
-    //         return -1;
-    //     }
-    // }
-
-    // Mat frame;
-    // namedWindow("Frame");
-    // for(;;){
-    //     cap >> frame;
-    //     if(cam.hasMotion(frame)){
-    //         cout << "Has Motion!" << endl;
-    //     }
-
-    //     imshow("Frame", frame);
-
-    //     if(waitKey(30) >= 0) break;
-    // }
-
-    // cap.release();
-    // destroyAllWindows();
-    // DetectFace(cap, fDetector);
-    // detectMotionAndFace(cap, mDetector, fDetector);
-    // trackDetectedFace(cap, fDetector);
-    // trackMultiFace(cap, fDetector);
+    camera.start(showOutput);
 
     return 0;
 }

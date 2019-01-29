@@ -1,7 +1,6 @@
 #include "surveillance.h"
 #include "utils.h"
 
-
 SurveillanceException::SurveillanceException(const string& msg):m_msg(msg){
     cout << m_msg << endl;
 }
@@ -45,7 +44,6 @@ void Surveillance::writeFrame(){
             videoWriter = nullptr;
         }
         string dateDir = outputDir + "/" + dateStr;
-
         if(!makePath(dateDir)){
             throw SurveillanceException("Create Directory Failed, Existed!");
         }
@@ -66,7 +64,12 @@ void Surveillance::writeFrame(){
 
 void Surveillance::updateTime(){
     time(&now);
-    nowInfo = localtime(&now);
+    if(nowInfo){
+        localtime(&now);
+    }
+    else{
+        nowInfo = localtime(&now);
+    }
     int d = parseDate(nowInfo, dateBuffer, "%d-%02d-%02d");
     int dt = parseDateTime(nowInfo, datetimeBuffer, "%02d:%02d:%02d");
 
@@ -76,8 +79,9 @@ void Surveillance::updateTime(){
     }
 }
 
-void Surveillance::record(){
-    writeFrame();
+
+bool Surveillance::needWrite(){
+    return true;
 }
 
 void Surveillance::start(bool show){
@@ -88,7 +92,9 @@ void Surveillance::start(bool show){
     }
     for(;;){
         cap >> frame;
-        record();
+        if(needWrite()){
+            writeFrame();
+        }
         if(show){
             imshow("Camera", frame);
         }
@@ -140,19 +146,19 @@ vector<vector<Point>> MotionSurveillance::getCounters() {
     return contours;
 }
 
-void MotionSurveillance::record(){
-
+bool MotionSurveillance::needWrite(){
+    bool check = false;
     if(hasMotion()){
         if(!motionDetected){
             motionDetected = true;
         }
         motionFails = 0;
-        writeFrame();
+        check = true; 
     }
     else if(motionDetected){
         if(motionFails < motionDelay){
             ++motionFails;
-            writeFrame();
+            check = true;
         }
         else{
             motionDetected = false;
@@ -161,11 +167,12 @@ void MotionSurveillance::record(){
             videoWriter = nullptr;
         }
     }
+    return check;
 }
 
 
-FaceSurveillance::FaceSurveillance(string output, string proto, string binary, float minConfidence, int dFreq, int cameraDevice=0, int delaySec = 10)
-    :MotionSurveillance(outputDir, cameraDevice, delaySec){
+FaceSurveillance::FaceSurveillance(string output, string proto, string binary, float minConfidence, int dFreq, int cameraDevice, int delaySec)
+    :MotionSurveillance(output, cameraDevice, delaySec){
         detector = new FaceDetector(proto, binary, minConfidence);
         tracker = new MultiTracker_Alt();
         detectFreq = dFreq;
@@ -175,6 +182,7 @@ FaceSurveillance::FaceSurveillance(string output, string proto, string binary, f
 
 FaceSurveillance::~FaceSurveillance(){
     delete detector;
+    delete tracker;
 }
 
 void FaceSurveillance::drawBBox(){
@@ -205,7 +213,7 @@ void FaceSurveillance::resetTracker(){
 
 void FaceSurveillance::trackFace(){
 
-    if(trackCount < detectFreq){
+    if(faceTracked && trackCount < detectFreq){
         bool success = tracker->update(frame);
         ++trackCount;
         if(success){
@@ -221,69 +229,20 @@ void FaceSurveillance::trackFace(){
 
 }
 
-void FaceSurveillance::record(){
-
+bool FaceSurveillance::needWrite(){
+    bool check = false;
     if(faceTracked){
         trackFace();
-        writeFrame();
+        check = true;
     }
-    else{
-        MotionSurveillance::record();
-        if(motionDetected){
-            trackFace();
-        }
+    else if(motionDetected){
+        trackFace();
+        check = MotionSurveillance::needWrite();
+        
     }
-
+    else if(MotionSurveillance::needWrite()){
+        trackFace();
+        check = faceTracked;
+    }
+    return check;
 }
-// Surveillance::Surveillance(ObjectDetector* pDetector){
-//     pDetector = pDetector;
-//     pMotionChecker = new MotionChecker();
-// }
-
-// Surveillance::~Surveillance(){
-//     delete pMotionChecker;
-// }
-
-// bool Surveillance::hasMotion(Mat &frame){
-//     return pMotionChecker->hasMotion(frame);
-// }
-
-// bool Surveillance::trackTargets(Mat &frame){
-//     vector<Rect> bboxs = pDetector->detect(frame);
-//     for(int i = 0; i < bboxs.size(); i++){
-//         tracker.addTarget(frame, bboxs[i], TrackerMedianFlow::create());
-//     }
-//     if(bboxs.size() == 0)
-//         return false;
-//     else
-//         return true;
-// }
-
-// void Surveillance::surveilFrame(Mat &frame){
-//     if(detected){
-//         pMotionChecker->updateBackground(frame);
-//         if(frameCnt % 30 == 0){
-//             tracker = MultiTracker_Alt(); 
-//             detected = trackTargets(frame);
-//         } 
-//         else{
-//             detected = tracker.update(frame);
-            
-//         }
-//         if(detected){
-//             for(int i = 0; i < tracker.boundingBoxes.size(); i++){
-
-//                 rectangle(frame, tracker.boundingBoxes[i], Scalar(0, 255, 0));
-//             }
-//         }
-
-//     }
-//     else{
-//         if(motion){
-//             motion = trackTargets(frame);
-//         }
-//         else{
-//             motion = hasMotion(frame);
-//         }
-//     }
-// }

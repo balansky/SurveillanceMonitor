@@ -28,30 +28,24 @@ class SurveillanceException: public exception{
 
 class Surveillance{
     protected:
-        // MotionChecker* pMotionChecker;
-        // ObjectDetector* pDetector;
-        // MultiTracker_Alt tracker;
         int frameWidth;
         int frameHeight;
         int frameRate;
         int nowDay;
         time_t now;
-        struct tm * nowInfo;
+        struct tm * nowInfo = nullptr;
         char dateBuffer[11];
         char datetimeBuffer[9];
         string outputDir;
         VideoCapture cap;
         Mat frame;
         VideoWriter *videoWriter = nullptr;
-        // bool detected = false;
-        // bool motion = false;
-        // unsigned long frameCnt = 0;
 
     public:
         Surveillance(string output, int cameraDevice = 0);
         virtual ~Surveillance();
+        virtual bool needWrite();
         virtual void writeFrame();
-        virtual void record();
         virtual void start(bool show = false);
         Mat getFrame();
         void updateTime();
@@ -75,11 +69,10 @@ class MotionSurveillance: public Surveillance{
     public:
 
         MotionSurveillance(string output, int cameraDevice = 0, int delaySec = 10);
-        void updateBackground();
-        // bool trackTargets(Mat &frame);
         bool hasMotion();
+        virtual bool needWrite();
+        void updateBackground();
         vector<vector<Point>> getCounters();
-        virtual void record();
 
 };
 
@@ -95,9 +88,9 @@ class FaceSurveillance: public MotionSurveillance{
         FaceSurveillance(string output, string proto, string binary, float minConfidence=0.5, int detectFeq=10, int cameraDevice=0, int delaySec = 10);
         ~FaceSurveillance();
         void drawBBox();
-        void resetTracker();
         void trackFace();
-        virtual void record();
+        void resetTracker();
+        virtual bool needWrite();
 
 };
 

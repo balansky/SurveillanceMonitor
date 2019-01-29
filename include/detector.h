@@ -13,7 +13,6 @@ using namespace std;
 class ObjectDetector{
     public:
         virtual vector<Rect> detect(Mat &frame) = 0;
-        // virtual ~ObjectDetector() = 0;
 };
 
 class FaceDetector: public ObjectDetector{

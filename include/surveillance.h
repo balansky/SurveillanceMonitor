@@ -86,7 +86,7 @@ class FaceSurveillance: public MotionSurveillance{
     
     public:
         FaceSurveillance(string output, string proto, string binary, float minConfidence=0.5, int detectFeq=10, int cameraDevice=0, int delaySec = 10);
-        ~FaceSurveillance();
+        virtual ~FaceSurveillance();
         void drawBBox();
         void trackFace();
         void resetTracker();

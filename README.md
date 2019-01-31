@@ -4,7 +4,7 @@ Surveillance System to Automatically Track and Detect Face.
 ### Installation
 
 - Install [Opencv4](https://github.com/opencv/opencv)
-- mkdir build & cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_GLOBALLY ON ..
+- mkdir build & cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_GLOBALLY=ON ..
 - sudo make install
 
 ### Usage

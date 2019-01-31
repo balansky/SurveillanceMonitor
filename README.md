@@ -8,7 +8,7 @@ Surveillance System to Automatically Track and Detect Face.
 - sudo make install
 
 ### Usage
-./PiCamera -output="output directory to save the video" -camera_device=0(camera device number, default 0) -min_confidence=0.5(confidence threshold for face detection, default 0.5)
+PiCamera -output="output directory to save the video" -camera_device=0(camera device number, default 0) -min_confidence=0.5(confidence threshold for face detection, default 0.5)
 
 ### Demo
 ![](assets/16_08_57.gif)

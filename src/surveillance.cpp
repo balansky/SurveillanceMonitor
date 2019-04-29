@@ -10,26 +10,91 @@ const char* SurveillanceException::what() const throw(){
 }
 
 
-Surveillance::Surveillance(string output, int cameraDevice){
-    cap = VideoCapture(cameraDevice);
-    if(!cap.isOpened())
-    {
-        throw SurveillanceException("Couldn't find camera: " + to_string(cameraDevice));
-    }
-    frameWidth = cap.get(CAP_PROP_FRAME_WIDTH);
-    frameHeight = cap.get(CAP_PROP_FRAME_HEIGHT);
-    frameRate = cap.get(CAP_PROP_FPS); 
+Surveillance::Surveillance(string output, int w, int h, int cameraDevice){
+    avdevice_register_all();
+    time(&now);
+    nowInfo = localtime(&now);
+    options = NULL;
+    pCodec = NULL;
+    pFormatCtx = avformat_alloc_context();
+	pInputFormat = av_find_input_format("v4l2");
+	packet = av_packet_alloc();
+	pFrame = av_frame_alloc();
+	pFrameBGR = av_frame_alloc();
+    pCodecCtx = avcodec_alloc_context3(pCodec); 
+    snprintf(device, 12, "/dev/video%d", cameraDevice);
+    frameHeight = h;
+    frameWidth = w;
+    frame = Mat(h, w, CV_8UC3);
+
+    pEpacket = av_packet_alloc();
+    pEncodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    pEncodecCtx = avcodec_alloc_context3(pEncodec);
+
+    pEncodecCtx->bit_rate = 800000;
+    pEncodecCtx->width = w;
+    pEncodecCtx->height = h;
+    pEncodecCtx->time_base = (AVRational){1, 25};
+    pEncodecCtx->framerate = (AVRational){25, 1};
+    pEncodecCtx->gop_size = 10;
+    pEncodecCtx->max_b_frames = 1;
+    pEncodecCtx->pix_fmt = AV_PIX_FMT_BGR24;
+    av_opt_set(pEncodecCtx->priv_data, "preset", "fast", 0);
+
     outputDir = output;
 }
 
+int Surveillance::openCamera(){
+    int ret, stream_idx; 
+  	// av_dict_set(&options, "framerate", "20", 0);
+	ret = avformat_open_input(&pFormatCtx, device, pInputFormat, &options);
+	if(ret != 0)
+  		throw SurveillanceException("Couldn't open file");
+	if(avformat_find_stream_info(pFormatCtx, NULL)<0)
+        throw SurveillanceException("Couldn't find stream information");
+	av_dump_format(pFormatCtx, 0, device, 0);
+
+    stream_idx = ret = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &pCodec, 0);
+    if(ret < 0){
+        throw SurveillanceException("Could not find best stream index  \n");
+	}
+    ret = avcodec_parameters_to_context(pCodecCtx, pFormatCtx->streams[stream_idx]->codecpar);
+    if(ret < 0){
+        throw SurveillanceException("Could not assign parameters to context  \n");
+	}
+    ret = avcodec_open2(pCodecCtx, pCodec, NULL);
+    if (ret < 0){
+        throw SurveillanceException("Could not Open Decoder  \n");
+    }
+    ret = avcodec_open2(pEncodecCtx, pEncodec, NULL);
+    if (ret < 0){
+        throw SurveillanceException("Could not Open Encoder  \n");
+    }
+
+     
+	av_image_fill_arrays(pFrameBGR->data, pFrameBGR->linesize, frame.data,
+						 AV_PIX_FMT_BGR24,frameWidth, frameHeight,1);
+	img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, 
+									 frameWidth, frameHeight, AV_PIX_FMT_BGR24, 
+									 SWS_FAST_BILINEAR, NULL, NULL, NULL); 
+    return stream_idx;
+}
+
 Surveillance::~Surveillance(){
-    cap.release();
-    delete videoWriter;
+    av_packet_free(&packet);
+	avcodec_free_context(&pCodecCtx);
+	av_frame_free(&pFrame);
+	av_frame_free(&pFrameBGR);
+	avformat_close_input(&pFormatCtx);
+    if(options)
+        av_dict_free(&options);
+    av_packet_free(&pEpacket);
+    avcodec_free_context(&pEncodecCtx);
     delete nowInfo;
     destroyAllWindows();
 }
 
-void Surveillance::writeFrame(){
+void Surveillance::writeFrame(FILE *outfile){
 
     updateTime();
     string dateStr(dateBuffer);
@@ -37,39 +102,62 @@ void Surveillance::writeFrame(){
 
     putText(frame, dateStr + " " + datetimeStr, Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
 
-    if(!videoWriter || nowInfo->tm_mday != nowDay){
+    // string dateDir = outputDir + "/" + dateStr;
+    // if(!makePath(dateDir)){
+    //     throw SurveillanceException("Create Directory Failed, Existed!");
+    // }
+    
+    // replace(datetimeStr.begin(), datetimeStr.end(), ':', '_');
+    // string outputPath = dateDir + "/" +  datetimeStr + ".avi";
 
-        if(videoWriter){
-            delete videoWriter;
-            videoWriter = nullptr;
+    int ret;
+    /* send the frame to the encoder */
+    if (pFrameBGR)
+        printf("Send frame %3"PRId64"\n", pFrameBGR->pts);
+    ret = avcodec_send_frame(pEncodecCtx, pFrameBGR);
+    if (ret < 0) {
+        throw SurveillanceException("Error sending a frame for encoding\n");
+    }
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(pEncodecCtx, pEpacket);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return;
+        else if (ret < 0) {
+            throw SurveillanceException("Error during encoding\n");
         }
-        string dateDir = outputDir + "/" + dateStr;
-        if(!makePath(dateDir)){
-            throw SurveillanceException("Create Directory Failed, Existed!");
-        }
-        
-        replace(datetimeStr.begin(), datetimeStr.end(), ':', '_');
-        string outputPath = dateDir + "/" +  datetimeStr + ".avi";
-
-        videoWriter = new VideoWriter(outputPath, VideoWriter::fourcc('X', '2', '6', '4'), 
-                                    frameRate, Size(frameWidth, frameHeight));
-        if(!videoWriter){
-            throw SurveillanceException("Could not open the output video file for write");
-        }
-
+        printf("Write packet %3"PRId64" (size=%5d)\n", pEpacket->pts, pEpacket->size);
+        fwrite(pEpacket->data, 1, pEpacket->size, outfile);
+        av_packet_unref(pEpacket);
     }
 
-    videoWriter->write(frame);
+    // if(!videoWriter || nowInfo->tm_mday != nowDay){
+
+    //     if(videoWriter){
+    //         delete videoWriter;
+    //         videoWriter = nullptr;
+    //     }
+    //     string dateDir = outputDir + "/" + dateStr;
+    //     if(!makePath(dateDir)){
+    //         throw SurveillanceException("Create Directory Failed, Existed!");
+    //     }
+        
+    //     replace(datetimeStr.begin(), datetimeStr.end(), ':', '_');
+    //     string outputPath = dateDir + "/" +  datetimeStr + ".avi";
+
+    //     videoWriter = new VideoWriter(outputPath, VideoWriter::fourcc('X', '2', '6', '4'), 
+    //                                 frameRate, Size(frameWidth, frameHeight));
+    //     if(!videoWriter){
+    //         throw SurveillanceException("Could not open the output video file for write");
+    //     }
+
+    // }
+
+    // videoWriter->write(frame);
 }
 
 void Surveillance::updateTime(){
     time(&now);
-    if(nowInfo){
-        localtime(&now);
-    }
-    else{
-        nowInfo = localtime(&now);
-    }
+    localtime(&now);
     int d = parseDate(nowInfo, dateBuffer, "%d-%02d-%02d");
     int dt = parseDateTime(nowInfo, datetimeBuffer, "%02d:%02d:%02d");
 
@@ -87,20 +175,38 @@ bool Surveillance::needWrite(){
 void Surveillance::start(bool show){
     updateTime();
     nowDay = nowInfo ->tm_mday;
+    int stream_idx = openCamera();
     if(show){
         namedWindow("Camera");
     }
-    for(;;){
-        cap >> frame;
-        if(needWrite()){
-            writeFrame();
-        }
-        if(show){
-            imshow("Camera", frame);
-        }
-        if(waitKey(30) >= 0) break;
-    } 
+    FILE * f = fopen("/home/andy/Videos/test.mp4", "wb");
+    while(av_read_frame(pFormatCtx, packet) >= 0){
 
+		if(packet->stream_index == stream_idx){
+            int ret = avcodec_send_packet(pCodecCtx, packet);
+            while(ret >= 0){
+                ret = avcodec_receive_frame(pCodecCtx, pFrame);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                    break;
+                else if(ret < 0){
+                    throw SurveillanceException("Error during decoding\n");
+                }
+                else{
+                    sws_scale(img_convert_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height, 
+                                               pFrameBGR->data, pFrameBGR->linesize);
+                    if(needWrite()){
+                        writeFrame(f);
+                    }
+                    if(show){
+                        imshow("Camera", frame);                        
+                    }
+                }
+            }
+		}
+		av_packet_unref(packet);
+        if(waitKey(30) >= 0) break;
+	}
+    fclose(f);
 }
 
 Mat Surveillance::getFrame(){

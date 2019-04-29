@@ -3,6 +3,7 @@ project(PiCamera)
 
 set(CMAKE_CXX_STANDARD 14)
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
 set(PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 
 file(GLOB_RECURSE SOURCE "src/*.cpp")
@@ -26,14 +27,19 @@ configure_file("${PROJECT_SOURCE_DIR}/PiCamera.h.in"
                "${PROJECT_INCLUDE_DIR}/PiCamera.h")
             
 find_package(OpenCV 4 REQUIRED)
+find_package(FFmpeg REQUIRED)
+find_package (Threads REQUIRED)
 
-# message(${OpenCV_INCLUDE_DIRS})
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-include_directories(${PROJECT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
+message(${FFMPEG_LIBRARIES})
+
+include_directories(${PROJECT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFMPEG_INCLUDE_DIRS})
 
 add_executable(PiCamera src/main.cpp ${SOURCE})
 
-target_link_libraries(PiCamera ${OpenCV_LIBS})
+target_link_libraries(PiCamera ${OpenCV_LIBS} ${FFMPEG_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 install(TARGETS PiCamera DESTINATION bin)
 install(FILES models/${MODEL_PROTO} models/${MODEL_BINARY} DESTINATION ${MODEL_DIR})

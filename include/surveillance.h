@@ -11,6 +11,21 @@
 #include <string>
 #include <time.h>
 
+//Linux...
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavfilter/avfilter.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
+#include <libavdevice/avdevice.h>
+#ifdef __cplusplus
+};
+#endif
+
 using namespace cv;
 using namespace std;
 
@@ -29,27 +44,43 @@ class SurveillanceException: public exception{
 class Surveillance{
     protected:
         int frameWidth;
-        int frameHeight;
+        int frameHeight; 
         int frameRate;
-        int nowDay;
-        time_t now;
-        struct tm * nowInfo = nullptr;
+        char device[12];
         char dateBuffer[11];
         char datetimeBuffer[9];
-        string outputDir;
-        VideoCapture cap;
+        time_t now;
+        struct tm * nowInfo;
+        int nowDay;
         Mat frame;
+        AVFormatContext *pFormatCtx;
+        AVInputFormat *pInputFormat;
+        AVPacket *packet;
+        AVFrame *pFrame;
+        AVFrame *pFrameBGR;
+        AVCodec *pCodec;
+        AVCodecContext *pCodecCtx;
+        AVDictionary *options;
+
+        AVCodec *pEncodec;
+        AVCodecContext *pEncodecCtx;
+        AVPacket *pEpacket;
+
+        struct SwsContext *img_convert_ctx;
+        string outputDir;
+        // VideoCapture cap;
         VideoWriter *videoWriter = nullptr;
 
     public:
-        Surveillance(string output, int cameraDevice = 0);
+        Surveillance(string output, int width = 640, int height = 480, int cameraDevice = 0);
         virtual ~Surveillance();
+        // virtual bool setFrameRate();
+        virtual int openCamera();
         virtual bool needWrite();
-        virtual void writeFrame();
+        virtual void writeFrame(FILE *outfile);
         virtual void start(bool show = false);
         Mat getFrame();
         void updateTime();
-
 };
 
 class MotionSurveillance: public Surveillance{

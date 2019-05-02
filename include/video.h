@@ -63,23 +63,16 @@ struct VideoInputContext{
         if(!fmt_ctx)
   		    throw VideoError("Failed To Allocate Format Context!");
 
-        if(avformat_open_input(&fmt_ctx, input_file, ifmt, &f_opts) != 0)
+        if(avformat_open_input(&this->fmt_ctx, input_file, this->ifmt, &f_opts) != 0)
             throw VideoError("Couldn't open file");
 
         if(avformat_find_stream_info(fmt_ctx, NULL)<0)
             throw VideoError("Couldn't find stream information");
 
-        codec_ctx = avcodec_alloc_context3(codec);
+        codec_ctx = avcodec_alloc_context3(this->codec);
 
         if(!codec_ctx)
             throw VideoError("Failed To Allocate Codec Context!");
-
-        in_frame = av_frame_alloc();
-        if(!in_frame)
-            throw VideoError("Failed To Allocate In-Frame Context!");
-        out_frame = av_frame_alloc();
-        if(!out_frame)
-            throw VideoError("Failed To Allocate out-Frame Context!");
 
         av_dump_format(fmt_ctx, 0, input_file, 0);
 
@@ -113,38 +106,38 @@ struct VideoOutputContext{
     const char * out_file;
 
     VideoOutputContext(const char *out_file, AVOutputFormat *ofmt, AVDictionary *f_opts,
-                       AVCodec *codec, AVDictionary *c_opts):out_file(out_file), ofmt(ofmt), f_opts(f_opts),
-                                                             codec(codec), c_opts(c_opts){
+                       AVCodec *codec, AVDictionary *c_opts):out_file(out_file), codec(codec), ofmt(ofmt),
+                                                             f_opts(f_opts), c_opts(c_opts){
 
-        avformat_alloc_output_context2(&fmt_ctx, ofmt, NULL, out_file);
-        if(!fmt_ctx){
-            throw DecodeError("Couldn't Create Format Context");
+        avformat_alloc_output_context2(&fmt_ctx, this->ofmt, NULL, this->out_file);
+        if(!this->fmt_ctx){
+            throw VideoError("Couldn't Create Format Context");
         }
-        if(!ofmt)
-            ofmt = fmt_ctx->oformat;
+        if(!this->ofmt)
+            this->ofmt = fmt_ctx->oformat;
 
-        if(!codec){
-            if(ofmt->video_codec != AV_CODEC_ID_NONE)
-                codec = avcodec_find_encoder(ofmt->video_codec);
+        if(!this->codec){
+            if(this->ofmt->video_codec != AV_CODEC_ID_NONE)
+                this->codec = avcodec_find_encoder(this->ofmt->video_codec);
             else
-                codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+                this->codec = avcodec_find_encoder(AV_CODEC_ID_H264);
         }
-        if(!codec){
-            throw DecodeError("Couldn't Find Validated Encoder! \n");
+        if(!this->codec){
+            throw VideoError("Couldn't Find Validated Encoder! \n");
         }
 
-        codec_ctx = avcodec_alloc_context3(codec);
+        this->codec_ctx = avcodec_alloc_context3(this->codec);
 
-        if(!codec_ctx)
+        if(!this->codec_ctx)
             throw VideoError("Failed To Allocate Codec Context! \n");
 
-        out_stream = avformat_new_stream(fmt_ctx, codec);
+        this->out_stream = avformat_new_stream(this->fmt_ctx, this->codec);
 
-        if(!out_stream)
+        if(!this->out_stream)
             throw VideoError("Failed To Create New Encoding Stream! \n");
 
 
-        av_dump_format(fmt_ctx, 0, out_file, 1);
+        av_dump_format(this->fmt_ctx, 0, out_file, 1);
     };
 
     explicit VideoOutputContext(const char *out_file):VideoOutputContext(out_file, NULL, NULL, NULL, NULL){};
@@ -152,8 +145,8 @@ struct VideoOutputContext{
     ~VideoOutputContext(){
         if(fmt_ctx)
             avformat_free_context(fmt_ctx);
-        if(codec_ctx)
-            avcodec_free_context(&codec_ctx);
+//        if(codec_ctx)
+//            avcodec_free_context(&codec_ctx);
     };
 
     int open_codec(const int &width, const int &height, const int64_t &bit_rate, const int &gop_size,
@@ -181,11 +174,15 @@ struct VideoTranscoder{
 
     void transform_frame(AVFrame *in_frame, AVFrame *out_frame, struct SwsContext *img_convert_ctx);
 
+    void process_frame(AVFrame *in_frame, AVFrame *out_frame, struct SwsContext *img_convert_ctx);
+
     int decode(AVFrame *frame, AVPacket *pkt);
 
-    void transcoding(int &d_width, int &d_height, AVPixelFormat &d_pixel_fmt,
-                     int &e_width, int &e_height, AVPixelFormat &e_pixel_fmt,
-                     int &bit_rate, int &gop_size, AVRational time_base, AVRational frame_rate);
+    int encode(AVFrame *frame, AVPacket *pkt);
+
+    void transcoding(int d_width, int d_height, AVPixelFormat d_pixel_fmt,
+                     int e_width, int e_height, AVPixelFormat e_pixel_fmt,
+                     int bit_rate, int gop_size, AVRational time_base, AVRational frame_rate);
 
 
 };

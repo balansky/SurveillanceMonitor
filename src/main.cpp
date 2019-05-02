@@ -41,7 +41,13 @@ int main(int argc, char** argv){
 
     avdevice_register_all();
 
-    open_input();
+//    char *in_file = "/home/andy/Videos/ttt.mp4";
+    char *in_file = "/dev/video0";
+    char *out_file = "/home/andy/Videos/out.avi";
+    VideoTranscoder vt(in_file, out_file);
+    vt.transcoding(224, 168, AV_PIX_FMT_YUV420P, 224, 168, AV_PIX_FMT_YUV420P, 400000, 10, av_make_q(1, 25), av_make_q(25, 1));
+
+
 //    Encoder encoder("/home/andy/Videos/test.mp4", 224, 168);
 //    cv::namedWindow("Camera");
 //    std::thread t(openCamera);

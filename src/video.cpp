@@ -2,10 +2,12 @@
 
 int VideoInputContext::open_codec() {
 
-    int stream_idx = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
+
+    int stream_idx = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &this->codec, 0);
     if(stream_idx < 0){
         throw VideoError("Could not find best stream index  \n");
     }
+
 
     if( avcodec_parameters_to_context(codec_ctx, fmt_ctx->streams[stream_idx]->codecpar) < 0){
         throw VideoError("Could not assign parameters to context  \n");
@@ -15,6 +17,7 @@ int VideoInputContext::open_codec() {
         throw VideoError("Could not Open Decoder  \n");
     }
 
+
     return stream_idx;
 }
 
@@ -22,7 +25,7 @@ int VideoOutputContext::open_codec(const int &width, const int &height, const in
                                    AVRational time_base, AVRational frame_rate) {
 
 //    out_stream->id = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
-    out_stream->duration = 100;
+//    out_stream->duration = 100;
     // pCodecCtx = pOutStream->codec;
 
     out_stream->time_base = time_base;
@@ -32,8 +35,8 @@ int VideoOutputContext::open_codec(const int &width, const int &height, const in
     codec_ctx->bit_rate = bit_rate;
     codec_ctx->width = width;
     codec_ctx->height = height;
-    codec_ctx->gop_size = 12;
-//    codec_ctx->pix_fmt = pixel_fmt;
+//    codec_ctx->gop_size = 12;
+    codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
     if (codec_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
         /* just for testing, we also add B frames */
@@ -57,6 +60,8 @@ int VideoOutputContext::open_codec(const int &width, const int &height, const in
     if(ret < 0){
         throw VideoError("Failed To Fill Parameters Into Output Stream! \n");
     }
+
+    out_stream->codec = codec_ctx;
 
     if (!(fmt_ctx->flags & AVFMT_NOFILE)) {
         ret = avio_open(&fmt_ctx->pb, out_file, AVIO_FLAG_WRITE);
@@ -89,13 +94,50 @@ int VideoTranscoder::decode(AVFrame *frame, AVPacket *pkt) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
             return ret;
         else if(ret < 0){
-            throw DecodeError("Error during decoding\n");
+            throw VideoError("Error during decoding\n");
         }
         else{
             return ret;
         }
     }
 
+
+}
+
+int VideoTranscoder::encode(AVFrame *frame, AVPacket *pkt) {
+//    frame->pts = av_rescale_q_rnd(frame->pts, in_ctx->codec_ctx->time_base, out_ctx->codec_ctx->time_base,
+//                                  AV_ROUND_NEAR_INF);
+//    frame->pkt_duration = av_rescale_q_rnd(frame->pkt_duration, in_ctx->codec_ctx->time_base, out_ctx->codec_ctx->time_base,
+//                                           AV_ROUND_NEAR_INF);
+    frame->pts = frame->pts - in_ctx->fmt_ctx->streams[0]->start_time;
+    std::cout << frame->pts << std::endl;
+    int ret = avcodec_send_frame(out_ctx->codec_ctx, frame);
+    if (ret < 0) {
+        char errbuf[30];
+        av_strerror(ret, errbuf, 30);
+        fprintf(stderr, "Error sending a frame for encoding\n");
+    }
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(out_ctx->codec_ctx, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return ret;
+        else if (ret < 0) {
+            fprintf(stderr, "Error during encoding\n");
+            exit(1);
+        }
+
+        pkt->stream_index = out_ctx->out_stream->index;
+        av_packet_rescale_ts(pkt, in_ctx->fmt_ctx->streams[0]->time_base, out_ctx->fmt_ctx->streams[0]->time_base);
+//        av_packet_rescale_ts(pkt, in_ctx->fmt_ctx->streams[0]->time_base, out_ctx->codec_ctx->time_base);
+//        av_packet_rescale_ts(pkt, out_ctx->codec_ctx->time_base, out_ctx->fmt_ctx->streams[0]->time_base);
+//        pkt->duration = 3;
+        printf("Write packet %3"PRId64" (size=%5d)\n", pkt->pts, pkt->size);
+//         av_packet_rescale_ts(pkt, time_base, pCodecCtx->time_base);
+        int ret = av_interleaved_write_frame(out_ctx->fmt_ctx, pkt);
+//         int ret = av_write_frame(out_ctx->fmt_ctx, pkt);
+        av_packet_unref(pkt);
+        return ret;
+    }
 }
 
 void VideoTranscoder::transform_frame(AVFrame *in_frame, AVFrame *out_frame, struct SwsContext *img_convert_ctx) {
@@ -106,11 +148,23 @@ void VideoTranscoder::transform_frame(AVFrame *in_frame, AVFrame *out_frame, str
     av_frame_copy_props(out_frame, in_frame);
 }
 
-void VideoTranscoder::transcoding(int &d_width, int &d_height, AVPixelFormat &d_pixel_fmt, int &e_width, int &e_height,
-                                  AVPixelFormat &e_pixel_fmt, int &bit_rate, int &gop_size, AVRational time_base,
+void VideoTranscoder::process_frame(AVFrame *in_frame, AVFrame *out_frame, struct SwsContext *img_convert_ctx) {
+
+    sws_scale(img_convert_ctx, in_frame->data, in_frame->linesize, 0, in_frame->height,
+              out_frame->data, out_frame->linesize);
+    av_frame_copy_props(out_frame, in_frame);
+}
+
+
+void VideoTranscoder::transcoding(int d_width, int d_height, AVPixelFormat d_pixel_fmt, int e_width, int e_height,
+                                  AVPixelFormat e_pixel_fmt, int bit_rate, int gop_size, AVRational time_base,
                                   AVRational frame_rate) {
     int stream_idx = in_ctx->open_codec();
     out_ctx->open_codec(e_width, e_height, bit_rate, gop_size, time_base, frame_rate);
+//    AVRational mb = in_ctx->codec_ctx->time_base;
+//    AVRational tb = in_ctx->fmt_ctx->streams[stream_idx]->codec->time_base;
+//    AVRational fp =  in_ctx->fmt_ctx->streams[stream_idx]->codec->framerate;
+//    out_ctx->open_codec(e_width, e_height, in_ctx->codec_ctx->bit_rate, gop_size, tb, fp);
 
     struct SwsContext *d_img_convert_ctx = sws_getContext(in_ctx->codec_ctx->width, in_ctx->codec_ctx->height,
                                                           in_ctx->codec_ctx->pix_fmt,
@@ -134,6 +188,13 @@ void VideoTranscoder::transcoding(int &d_width, int &d_height, AVPixelFormat &d_
 
     AVFrame *e_frame = av_frame_alloc();
     uint8_t *e_buffer = allocate_frame_buffer(e_frame, e_pixel_fmt, e_width, e_height);
+    e_frame->width = e_width;
+    e_frame->height = e_height;
+    e_frame->format = e_pixel_fmt;
+
+
+    if(avformat_write_header(out_ctx->fmt_ctx, NULL) < 0)
+        throw VideoError("Couldn't Write Output File! \n");
 
     int cnt = 0;
     while(av_read_frame(in_ctx->fmt_ctx, d_pkt) >= 0) {
@@ -146,14 +207,17 @@ void VideoTranscoder::transcoding(int &d_width, int &d_height, AVPixelFormat &d_
                 continue;
             else if(ret == AVERROR_EOF)
                 break;
-            transform_frame(in_frame, out_frame);
+            transform_frame(in_frame, out_frame, d_img_convert_ctx);
+            process_frame(out_frame, e_frame, e_img_convert_ctx);
+//            e_frame->pts = cnt;
+            encode(e_frame, e_pkt);
             av_packet_unref(d_pkt);
             ++cnt;
         }
-        if(cnt >= 100)
+        if(cnt >= 300)
             break;
     }
-
+    av_write_trailer(out_ctx->fmt_ctx);
     sws_freeContext(d_img_convert_ctx);
     sws_freeContext(e_img_convert_ctx);
     av_free_packet(d_pkt);

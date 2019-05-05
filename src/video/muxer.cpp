@@ -7,7 +7,8 @@
 namespace picamera{
 
     MuxerContext::MuxerContext(char *out_file, const int &width, const int &height, const int64_t &bit_rate,
-                               const int &gop_size, AVRational frame_rate, AVRational src_tb, AVRational dst_tb) {
+                               const int &gop_size, AVRational frame_rate, AVRational src_tb, AVRational dst_tb):
+                               src_time_base(src_tb) {
 
         avformat_alloc_output_context2(&fmt_ctx, ofmt, NULL, out_file);
         if(!fmt_ctx){
@@ -33,7 +34,6 @@ namespace picamera{
         if(!out_stream)
             throw VideoError("Failed To Create New Encoding Stream! \n");
 
-        src_time_base = src_tb;
         out_stream->time_base = dst_tb;
         codec_ctx->time_base = dst_tb;
         codec_ctx->framerate = frame_rate;
@@ -87,7 +87,6 @@ namespace picamera{
 
     int MuxerContext::encode_frame(AVFrame *frame) {
 
-        frame->pts = pts++;
         int ret = avcodec_send_frame(codec_ctx, frame);
         if (ret < 0) {
             fprintf(stderr, "Error sending a frame for encoding\n");
@@ -118,17 +117,60 @@ namespace picamera{
         avformat_free_context(fmt_ctx);
     }
 
+
+    VideoMuxer::VideoMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate):
+    out_file(out_file), src_stream(src_stream), bit_rate(bit_rate), gop_size(gop_size), frame_rate(frame_rate) {
+        time_base = av_inv_q(frame_rate);
+
+    }
+
+
     AVFrame* VideoMuxer::transform_frame(AVFrame *frame) {
         return frame;
     }
 
-    int VideoMuxer::muxing(AVFrame *frame, const int &bit_rate, const int &gop_size, const AVRational &frame_rate) {
+    int VideoMuxer::muxing(AVFrame *frame) {
         if(!ctx){
-            ctx = std::make_unique<MuxerContext>(new MuxerContext(out_file, dst_width, dst_height, bit_rate, gop_size, frame_rate,
-                                                 src_time_base, dst_time_base));
+            ctx = std::make_unique<MuxerContext>(out_file, src_stream->codecpar->width, src_stream->codecpar->height,
+                                                 bit_rate, gop_size, frame_rate,
+                                                 src_stream->time_base, time_base);
         }
         AVFrame *f = transform_frame(frame);
+        f->pts = f->pts - src_stream->start_time;
         return ctx->encode_frame(f);
+    }
+
+
+
+    VideoRescaleMuxer::VideoRescaleMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
+                                         int bit_rate, int gop_size, AVRational frame_rate):
+                                         VideoMuxer(out_file, src_stream, bit_rate, gop_size, frame_rate),
+                                         dst_width(dst_width), dst_height(dst_height){
+        frame = av_frame_alloc();
+
+        img_convert_ctx = sws_getContext(src_stream->codecpar->width, src_stream->codecpar->height,
+                                         src_stream->codec->pix_fmt, dst_width, dst_height, AV_PIX_FMT_YUV420P,
+                                         SWS_FAST_BILINEAR, NULL, NULL, NULL);
+        uint8_t *out_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_YUV420P, dst_width, dst_height, 32));
+
+        av_image_fill_arrays(frame->data, frame->linesize, out_buffer,
+                             AV_PIX_FMT_YUV420P, dst_width, dst_height, 32);
+        frame->width = dst_width;
+        frame->height = dst_height;
+        frame->format = AV_PIX_FMT_YUV420P;
+    }
+
+    VideoRescaleMuxer::~VideoRescaleMuxer() {
+        sws_freeContext(img_convert_ctx);
+        av_frame_free(&frame);
+    }
+
+    AVFrame * VideoRescaleMuxer::transform_frame(AVFrame *in_frame) {
+
+        sws_scale(img_convert_ctx, in_frame->data, in_frame->linesize, 0, in_frame->height,
+                  frame->data, frame->linesize);
+        av_frame_copy_props(frame, in_frame);
+        return frame;
     }
 
 }

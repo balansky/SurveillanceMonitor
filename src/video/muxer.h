@@ -5,7 +5,7 @@
 #ifndef PICAMERA_MUXER_H
 #define PICAMERA_MUXER_H
 
-#include <video.h>
+#include "video.h"
 
 namespace picamera{
 
@@ -48,32 +48,41 @@ namespace picamera{
 
     private:
         char *out_file;
-        int src_width;
-        int src_height;
-        AVPixelFormat src_fmt;
-        AVRational src_time_base;
+        AVStream *src_stream;
 
-        int dst_width;
-        int dst_height;
-        AVPixelFormat dst_fmt;
-        AVRational dst_time_base;
+        int bit_rate;
+        int gop_size;
+        AVRational time_base;
+        AVRational frame_rate;
 
         std::unique_ptr<MuxerContext> ctx;
 
     public:
 
-        VideoMuxer(char *out_file, int src_width, int src_height, AVPixelFormat src_fmt, AVRational src_tb,
-                                   int dst_width, int dst_height, AVPixelFormat dst_fmt, AVRational dst_tb):
-                   out_file(out_file), src_width(src_width), src_height(src_height), src_fmt(src_fmt), src_time_base(src_tb),
-                   dst_width(dst_width), dst_height(dst_height), dst_fmt(dst_fmt), dst_time_base(dst_tb){}
+        VideoMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate);
 
         virtual ~VideoMuxer() = default;
 
         virtual AVFrame* transform_frame(AVFrame *frame);
 
-        virtual int muxing(AVFrame *frame, const int &bit_rate, const int &gop_size, const AVRational &frame_rate);
+        virtual int muxing(AVFrame *frame);
 
+    };
 
+    class VideoRescaleMuxer: public VideoMuxer {
+    private:
+        int dst_width;
+        int dst_height;
+
+        AVFrame *frame;
+        struct SwsContext *img_convert_ctx;
+
+    public:
+        VideoRescaleMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
+                          int bit_rate, int gop_size, AVRational frame_rate);
+        ~VideoRescaleMuxer();
+
+        virtual AVFrame* transform_frame(AVFrame *frame);
     };
 
 

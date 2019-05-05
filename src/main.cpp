@@ -1,6 +1,5 @@
 // #include "surveillance.h"
 #include "PiCamera.h"
-#include "video.h"
 #include <unistd.h>
 #include <thread>
 #include "opencv2/imgproc.hpp"
@@ -8,6 +7,8 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/tracking.hpp"
+
+#include "video/transcoder.h"
 
 const char* params
         = "{ help           | false | print usage          }"
@@ -43,9 +44,12 @@ int main(int argc, char** argv){
 
 //    char *in_file = "/home/andy/Videos/ttt.mp4";
     char *in_file = "/dev/video0";
-    char *out_file = "/home/andy/Videos/out.mp4";
-    VideoTransCoder vt(in_file, out_file, 224, 168, AV_PIX_FMT_YUV420P);
-    vt.transcoding(400000, 10, av_make_q(1, 25), av_make_q(25, 1));
+    char *out_file = "/home/andy/Videos/out.avi";
+    picamera::VideoTransCoder vt(in_file);
+    vt.add_muxer(out_file, 400000, 10, av_make_q(25, 1));
+    vt.transcoding();
+//    VideoTransCoder vt(in_file, out_file, 224, 168, AV_PIX_FMT_YUV420P);
+//    vt.transcoding(400000, 10, av_make_q(1, 25), av_make_q(25, 1));
 
 
 //    Encoder encoder("/home/andy/Videos/test.mp4", 224, 168);

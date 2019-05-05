@@ -43,7 +43,7 @@ namespace picamera{
 
         frame = av_frame_alloc();
         if(!frame)
-            throw VideoError("Failed to create Frame for demuxer! \n")
+            throw VideoError("Failed to create Frame for demuxer! \n");
 
         av_dump_format(fmt_ctx, 0, input_file, 0);
 
@@ -54,16 +54,13 @@ namespace picamera{
         int ret = avcodec_send_packet(codec_ctx, pkt);
         while(ret >= 0){
             ret = avcodec_receive_frame(codec_ctx, frame);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            if(ret == 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF){
+                av_packet_unref(pkt);
                 return ret;
-            else if(ret < 0){
+            }
+            else
                 throw VideoError("Error during decoding\n");
-            }
-            else{
-                return ret;
-            }
         }
     }
-
 
 }

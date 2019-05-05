@@ -37,7 +37,7 @@ message(${FFMPEG_LIBRARIES})
 
 include_directories(${PROJECT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${FFMPEG_INCLUDE_DIRS})
 
-add_executable(PiCamera src/main.cpp ${SOURCE})
+add_executable(PiCamera src/main.cpp ${SOURCE} )
 
 target_link_libraries(PiCamera ${OpenCV_LIBS} ${FFMPEG_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 

@@ -22,6 +22,13 @@ namespace picamera{
 
     }
 
+    void VideoTransCoder::flush() {
+        for(int i = 0; i < muxers.size(); i++){
+            muxers[i]->flush();
+        }
+
+    }
+
     void VideoTransCoder::encode(AVFrame *frame) {
         for(int i = 0; i < muxers.size(); i++){
             muxers[i]->muxing(frame);
@@ -48,6 +55,7 @@ namespace picamera{
                 break;
         }
 
+        flush();
     }
 
 }

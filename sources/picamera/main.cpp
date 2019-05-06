@@ -8,7 +8,7 @@
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/tracking.hpp"
 
-#include "video/transcoder.h"
+#include "transcoder.h"
 
 const char* params
         = "{ help           | false | print usage          }"

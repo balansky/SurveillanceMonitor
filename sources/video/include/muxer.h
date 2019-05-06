@@ -65,6 +65,8 @@ namespace picamera{
 
         virtual AVFrame* transform_frame(AVFrame *frame);
 
+        virtual void flush();
+
         virtual int muxing(AVFrame *frame);
 
     };

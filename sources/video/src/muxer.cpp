@@ -129,6 +129,10 @@ namespace picamera{
         return frame;
     }
 
+    void VideoMuxer::flush() {
+        ctx->encode_frame(NULL);
+    }
+
     int VideoMuxer::muxing(AVFrame *frame) {
         if(!ctx){
             ctx = std::make_unique<MuxerContext>(out_file, src_stream->codecpar->width, src_stream->codecpar->height,

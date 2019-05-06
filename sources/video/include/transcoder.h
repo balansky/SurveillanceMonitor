@@ -5,6 +5,7 @@
 #ifndef PICAMERA_TRANSCODER_H
 #define PICAMERA_TRANSCODER_H
 
+#include "video.h"
 #include "muxer.h"
 #include "demuxer.h"
 
@@ -25,6 +26,8 @@ namespace picamera{
         virtual void add_muxer(char *out_file, int bit_rate, int gop_size, AVRational frame_rate);
 
         virtual void encode(AVFrame *frame);
+
+        virtual void flush();
 
         virtual void transcoding();
 

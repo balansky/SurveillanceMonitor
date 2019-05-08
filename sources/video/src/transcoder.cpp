@@ -51,7 +51,7 @@ namespace picamera{
                     encode(frame);
                 ++cnt;
             }
-            if(cnt >= 300)
+            if(cnt >= 100)
                 break;
         }
 

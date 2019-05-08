@@ -46,7 +46,7 @@ namespace picamera{
 
     class VideoMuxer {
 
-    private:
+    protected:
         char *out_file;
         AVStream *src_stream;
 
@@ -72,7 +72,7 @@ namespace picamera{
     };
 
     class VideoRescaleMuxer: public VideoMuxer {
-    private:
+    protected:
         int dst_width;
         int dst_height;
 

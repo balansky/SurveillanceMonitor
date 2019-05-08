@@ -6,24 +6,68 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/tracking.hpp"
-#include "detector.h"
 #include <iostream>
 #include <string>
 #include <time.h>
 
-using namespace cv;
-using namespace std;
+#include "detector.h"
+#include "transcoder.h"
+#include "utils.h"
+
+namespace picamera{
+
+    using namespace cv;
+    using namespace std;
 
 
-
-class SurveillanceException: public exception{
+    class SurveillanceError: public std::exception{
     private:
-        const string m_msg;
+        const std::string m_msg;
 
     public:
-        SurveillanceException(const string& msg);
-        virtual const char* what() const throw();
-};
+        SurveillanceError(const std::string& msg):m_msg(msg){ std::cout << m_msg << std::endl;};
+        virtual const char* what() const throw(){return m_msg.c_str();};
+    };
+
+    class SurveillanceMuxer:public VideoMuxer{
+
+
+    protected:
+        int dst_width;
+        int dst_height;
+
+        AVFrame *mid_frame;
+        AVFrame *out_frame;
+        struct SwsContext *mid_convert_ctx;
+        struct SwsContext *out_convert_ctx;
+        Mat mat;
+
+        time_t now;
+        struct tm * now_info;
+        int now_day;
+        char date_buf[11];
+        char datetime_buf[9];
+
+    public:
+        SurveillanceMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
+                          int bit_rate, int gop_size, AVRational frame_rate);
+        SurveillanceMuxer(char *out_file, AVStream *src_stream,
+                          int bit_rate, int gop_size, AVRational frame_rate);
+        virtual ~SurveillanceMuxer();
+
+        virtual void add_timestamp();
+        virtual void transform_mat();
+        virtual void update_time();
+
+        virtual std::string get_output_path();
+
+        virtual int muxing(AVFrame *frame);
+        virtual AVFrame* transform_frame(AVFrame *frame);
+
+
+    };
+
+}
 
 
 //class Surveillance{

@@ -1,13 +1,9 @@
 
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
-
-find_package(FFmpeg REQUIRED)
-
 file(GLOB_RECURSE VIDEO_SOURCE "src/*.cpp")
 
-include_directories("include")
+include_directories("include" ${FFMPEG_INCLUDE_DIRS})
 
-add_library(video STATIC ${VIDEO_SOURCE} ${VIDEO_HEADERS})
+add_library(video SHARED ${VIDEO_SOURCE})
 
 target_link_libraries(video ${FFMPEG_LIBRARIES})

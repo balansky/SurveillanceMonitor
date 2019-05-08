@@ -8,20 +8,26 @@
 #include <direct.h>
 #endif
 
-using namespace std;
-
 #define ISTR( x ) static_cast< ostringstream &> ( \
-( ostringstream() <<  setw(2) << setfill('0') << x)).str() 
+( ostringstream() <<  setw(2) << setfill('0') << x)).str()
 
 
 #define SSTR( x ) static_cast< ostringstream & >( \
 ( ostringstream() << std::dec << x ) ).str()
 
 
-int parseDate(struct tm *now, char *buffer, const char *format="%d-%02d-%02d");
+namespace picamera{
 
-int parseDateTime(struct tm *now, char *buffer, const char *format="%02d:%02d:%02d");
+    using namespace std;
 
-bool isDirExist(const string& path);
+//    int parseDate(struct tm *now, char *buffer, const char *format="%d-%02d-%02d");
+    int parseDate(struct tm *now, char *buffer, const char *format);
 
-bool makePath(const string& path);
+//    int parseDateTime(struct tm *now, char *buffer, const char *format="%02d:%02d:%02d");
+    int parseDateTime(struct tm *now, char *buffer, const char *format);
+
+    bool isDirExist(const string& path);
+
+    bool makePath(const string& path);
+
+}

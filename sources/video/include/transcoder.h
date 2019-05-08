@@ -13,14 +13,14 @@ namespace picamera{
 
     typedef std::unique_ptr<VideoMuxer> Muxer;
 
-    class VideoTransCoder:DemuxerContext{
+    class VideoTransCoder:public DemuxerContext{
 
     private:
         std::vector<Muxer> muxers;
 
     public:
 
-        VideoTransCoder(char *input_file):DemuxerContext(input_file){};
+        explicit VideoTransCoder(char *input_file):DemuxerContext(input_file){};
 
         virtual void add_muxer(Muxer muxer);
         virtual void add_muxer(char *out_file, int bit_rate, int gop_size, AVRational frame_rate);

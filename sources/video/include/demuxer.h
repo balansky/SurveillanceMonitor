@@ -30,10 +30,10 @@ namespace picamera{
         virtual int decode_frame();
 
         ~DemuxerContext(){
+            av_frame_free(&frame);
             av_free_packet(pkt);
             avformat_close_input(&fmt_ctx);
             avcodec_free_context(&codec_ctx);
-            av_frame_free(&frame);
         }
 
     };

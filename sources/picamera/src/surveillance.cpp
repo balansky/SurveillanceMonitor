@@ -1,13 +1,140 @@
 #include "surveillance.h"
 #include "utils.h"
 
-SurveillanceException::SurveillanceException(const string& msg):m_msg(msg){
-    cout << m_msg << endl;
+
+namespace picamera{
+
+SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height, int bit_rate,
+                                     int gop_size, AVRational frame_rate): dst_height(dst_height),dst_width(dst_width),
+                                     VideoMuxer(out_file, src_stream, bit_rate, gop_size, frame_rate) {
+
+    time(&now);
+    now_info = localtime(&now);
+    now_day = now_info ->tm_mday;
+
+    mid_frame = av_frame_alloc();
+
+
+    mid_convert_ctx = sws_getContext(src_stream->codecpar->width, src_stream->codecpar->height,
+                                     src_stream->codec->pix_fmt, dst_width, dst_height, AV_PIX_FMT_BGR24,
+                                     SWS_FAST_BILINEAR, NULL, NULL, NULL);
+
+    uint8_t *mid_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_BGR24, dst_width, dst_height, 32));
+
+    av_image_fill_arrays(mid_frame->data, mid_frame->linesize, mid_buffer,
+                         AV_PIX_FMT_BGR24, dst_width, dst_height, 32);
+
+    out_frame = av_frame_alloc();
+    out_convert_ctx = sws_getContext(dst_width, dst_height,
+                                     AV_PIX_FMT_BGR24, dst_width, dst_height, AV_PIX_FMT_YUV420P,
+                                     SWS_FAST_BILINEAR, NULL, NULL, NULL);
+
+    uint8_t *out_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_YUV420P, dst_width, dst_height, 32));
+
+    av_image_fill_arrays(out_frame->data, out_frame->linesize, out_buffer,
+                         AV_PIX_FMT_YUV420P, dst_width, dst_height, 32);
+    out_frame->width = dst_width;
+    out_frame->height = dst_height;
+    out_frame->format = AV_PIX_FMT_YUV420P;
+
+    mat = Mat(dst_height, dst_width, CV_8UC3, mid_buffer, mid_frame->linesize[0]);
+
 }
 
-const char* SurveillanceException::what() const throw(){
-    return m_msg.c_str();
+SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size,
+                                     AVRational frame_rate):SurveillanceMuxer(out_file, src_stream,
+                                             src_stream->codecpar->width, src_stream->codecpar->height,
+                                             bit_rate, gop_size, frame_rate){}
+
+SurveillanceMuxer::~SurveillanceMuxer() {
+
+//    delete now_info;
+    sws_freeContext(mid_convert_ctx);
+    av_frame_free(&mid_frame);
+
+    sws_freeContext(out_convert_ctx);
+    av_frame_free(&out_frame);
 }
+
+
+void SurveillanceMuxer::update_time(){
+    time(&now);
+    localtime(&now);
+    int d = parseDate(now_info, date_buf, "%d-%02d-%02d");
+    int dt = parseDateTime(now_info, datetime_buf, "%02d:%02d:%02d");
+
+    if(d < 0 || dt < 0){
+
+        throw SurveillanceError("Time Parse Error Occurs!");
+    }
+}
+
+void SurveillanceMuxer::add_timestamp() {
+
+    string dateStr(date_buf);
+    string datetimeStr(datetime_buf);
+    cv::putText(mat, dateStr + " " + datetimeStr, Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
+
+}
+
+void SurveillanceMuxer::transform_mat() {
+    add_timestamp();
+}
+
+AVFrame * SurveillanceMuxer::transform_frame(AVFrame *frame) {
+
+    sws_scale(mid_convert_ctx, frame->data, frame->linesize, 0, frame->height,
+              mid_frame->data, mid_frame->linesize);
+
+    transform_mat();
+
+    sws_scale(out_convert_ctx, mid_frame->data, mid_frame->linesize, 0, dst_height,
+              out_frame->data, out_frame->linesize);
+
+
+    av_frame_copy_props(out_frame, frame);
+    return out_frame;
+}
+
+std::string SurveillanceMuxer::get_output_path() {
+    string date_str(date_buf);
+    string datetime_str(datetime_buf);
+    string date_dir = string(out_file) + "/" + string(date_str);
+    if(!makePath(date_dir)){
+        throw SurveillanceError("Create Directory Failed, Existed!");
+    }
+    replace(datetime_str.begin(), datetime_str.end(), ':', '_');
+    string output_path = date_dir + "/" +  datetime_str + ".avi";
+    return output_path;
+}
+
+int SurveillanceMuxer::muxing(AVFrame *frame) {
+
+    update_time();
+
+    if(!ctx){
+        string output_path = get_output_path();
+        ctx = std::make_unique<MuxerContext>((char *)output_path.c_str(), dst_width, dst_height,
+                                             bit_rate, gop_size, frame_rate,
+                                             src_stream->time_base, time_base);
+    }
+    else if(now_info->tm_mday != now_day){
+        ctx->encode_frame(NULL);
+        string output_path = get_output_path();
+        MuxerContext *m = new MuxerContext((char *)output_path.c_str(), dst_width, dst_height,
+                                            bit_rate, gop_size, frame_rate,
+                                            src_stream->time_base, time_base);
+        ctx.reset(m);
+
+    }
+    AVFrame *f = transform_frame(frame);
+    f->pts = f->pts - src_stream->start_time;
+    return ctx->encode_frame(f);
+}
+
+}
+
+
 
 
 //Surveillance::Surveillance(string output, int w, int h, int cameraDevice){

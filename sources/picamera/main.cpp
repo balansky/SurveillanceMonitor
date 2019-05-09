@@ -48,7 +48,7 @@ int main(int argc, char** argv){
 //    char *out_file = "/home/andy/Videos/out.avi";
     char *out_file = "/home/andy/Videos";
     VideoTransCoder vt(in_file);
-    vt.add_muxer(make_unique<SurveillanceMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));
+    vt.add_muxer(make_unique<MotionMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));
 //    vt.add_muxer(out_file, 400000, 10, av_make_q(25, 1));
     vt.transcoding();
 //    VideoTransCoder vt(in_file, out_file, 224, 168, AV_PIX_FMT_YUV420P);

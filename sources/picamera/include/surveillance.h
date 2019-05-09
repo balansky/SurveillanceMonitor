@@ -31,7 +31,6 @@ namespace picamera{
 
     class SurveillanceMuxer:public VideoMuxer{
 
-
     protected:
         int dst_width;
         int dst_height;
@@ -55,15 +54,42 @@ namespace picamera{
                           int bit_rate, int gop_size, AVRational frame_rate);
         virtual ~SurveillanceMuxer();
 
+        virtual void update_time();
         virtual void add_timestamp();
         virtual void transform_mat();
-        virtual void update_time();
+        virtual bool need_write();
+        virtual AVFrame* transform_frame(AVFrame *frame);
 
         virtual std::string get_output_path();
 
         virtual int muxing(AVFrame *frame);
-        virtual AVFrame* transform_frame(AVFrame *frame);
 
+
+    };
+
+    class MotionMuxer: public SurveillanceMuxer{
+
+    protected:
+        int motion_delay;
+        int motion_fails;
+        bool motion_detected;
+        Mat fg_mask_MOG2;
+        Mat bg_mask;
+        Ptr<BackgroundSubtractor> p_MOG2;
+        Mat element;
+        vector <vector<Point>>contours;
+        double threshold;
+
+    public:
+
+        MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
+                    int bit_rate, int gop_size, AVRational frame_rate);
+        MotionMuxer(char *out_file, AVStream *src_stream,
+                    int bit_rate, int gop_size, AVRational frame_rate);
+        virtual void update_background();
+        virtual bool has_motion();
+        virtual bool need_write();
+        virtual ~MotionMuxer(){};
 
     };
 

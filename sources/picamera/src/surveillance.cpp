@@ -42,9 +42,10 @@ SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int d
 }
 
 SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size,
-                                     AVRational frame_rate):SurveillanceMuxer(out_file, src_stream,
-                                             src_stream->codecpar->width, src_stream->codecpar->height,
-                                             bit_rate, gop_size, frame_rate){}
+                                     AVRational frame_rate):
+                                     SurveillanceMuxer(out_file, src_stream,
+                                     src_stream->codecpar->width, src_stream->codecpar->height,
+                                     bit_rate, gop_size, frame_rate){}
 
 SurveillanceMuxer::~SurveillanceMuxer() {
 
@@ -73,7 +74,7 @@ void SurveillanceMuxer::add_timestamp() {
 
     string dateStr(date_buf);
     string datetimeStr(datetime_buf);
-    cv::putText(mat, dateStr + " " + datetimeStr, Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
+    cv::putText(mat, dateStr + " " + datetimeStr, Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.55, Scalar(0,0,255),1);
 
 }
 
@@ -96,6 +97,10 @@ AVFrame * SurveillanceMuxer::transform_frame(AVFrame *frame) {
     return out_frame;
 }
 
+bool SurveillanceMuxer::need_write() {
+    return true;
+}
+
 std::string SurveillanceMuxer::get_output_path() {
     string date_str(date_buf);
     string datetime_str(datetime_buf);
@@ -111,26 +116,99 @@ std::string SurveillanceMuxer::get_output_path() {
 int SurveillanceMuxer::muxing(AVFrame *frame) {
 
     update_time();
-
-    if(!ctx){
-        string output_path = get_output_path();
-        ctx = std::make_unique<MuxerContext>((char *)output_path.c_str(), dst_width, dst_height,
-                                             bit_rate, gop_size, frame_rate,
-                                             src_stream->time_base, time_base);
-    }
-    else if(now_info->tm_mday != now_day){
-        ctx->encode_frame(NULL);
-        string output_path = get_output_path();
-        MuxerContext *m = new MuxerContext((char *)output_path.c_str(), dst_width, dst_height,
-                                            bit_rate, gop_size, frame_rate,
-                                            src_stream->time_base, time_base);
-        ctx.reset(m);
-
-    }
     AVFrame *f = transform_frame(frame);
+    bool write = need_write();
+
     f->pts = f->pts - src_stream->start_time;
-    return ctx->encode_frame(f);
+
+    if(write){
+        if(!ctx){
+            string output_path = get_output_path();
+            ctx = std::make_unique<MuxerContext>((char *)output_path.c_str(), dst_width, dst_height,
+                                                 bit_rate, gop_size, frame_rate,
+                                                 src_stream->time_base, time_base);
+        }
+        else if(now_info->tm_mday != now_day){
+            ctx->encode_frame(NULL);
+            string output_path = get_output_path();
+            ctx.reset(new MuxerContext((char *)output_path.c_str(), dst_width, dst_height,
+                                       bit_rate, gop_size, frame_rate,
+                                       src_stream->time_base, time_base));
+        }
+
+        return ctx->encode_frame(f);
+    }
+    else{
+        if(ctx){
+            ctx->encode_frame(NULL);
+            ctx.reset();
+        }
+        return AVERROR_EOF;
+    }
 }
+
+
+MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height, int bit_rate,
+                         int gop_size, AVRational frame_rate):
+                         SurveillanceMuxer(out_file, src_stream,
+                         dst_width, dst_height, bit_rate, gop_size, frame_rate),motion_fails(0),motion_detected(false) {
+
+    p_MOG2 = createBackgroundSubtractorMOG2();
+    element = getStructuringElement(0, Size(3, 3), Point(1,1) );
+    motion_delay = 10 * frame_rate.num;
+    threshold = dst_width*dst_height*0.002;
+}
+
+MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate):
+                         MotionMuxer(out_file, src_stream, src_stream->codecpar->width, src_stream->codecpar->height,
+                                     bit_rate, gop_size, frame_rate) {}
+
+
+void MotionMuxer::update_background() {
+
+    p_MOG2->apply(mat, fg_mask_MOG2);
+    p_MOG2->getBackgroundImage(bg_mask);
+}
+
+bool MotionMuxer::has_motion() {
+    update_background();
+
+    morphologyEx(fg_mask_MOG2, fg_mask_MOG2, 2, element);
+
+    findContours (fg_mask_MOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+
+    for(int i = 0; i< contours.size(); i++) {
+        if(contourArea(contours[i]) < threshold) {
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool MotionMuxer::need_write() {
+
+    bool check = false;
+    if(has_motion()){
+        if(!motion_detected){
+            motion_detected = true;
+        }
+        motion_fails = 0;
+        check = true;
+    }
+    else if(motion_detected){
+        if(motion_fails < motion_delay){
+            ++motion_fails;
+            check = true;
+        }
+        else{
+            motion_detected = false;
+            motion_fails = 0;
+        }
+    }
+    return check;
+}
+
 
 }
 

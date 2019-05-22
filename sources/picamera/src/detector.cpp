@@ -3,35 +3,27 @@
 //
 #include "detector.h"
 
+namespace picamera{
 
+    FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
 
-//FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
-//
-//          meanVal(127.5, 127.5, 127.5), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
-//
-//    net = cv::dnn::readNetFromCaffe(caffeConfigFile, caffeWeightFile);
-//
-//}
+            meanVal(104.0, 177.0, 123.0), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
 
-FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
+        net = readNet(caffeConfigFile, caffeWeightFile);
 
-        meanVal(104.0, 177.0, 123.0), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
+    }
 
-    net = readNet(caffeConfigFile, caffeWeightFile);
+    vector<Rect> FaceDetector::detect(Mat &frame){
 
-}
+        vector<Rect> bboxs;
+        Mat bgr;
+        if(frame.channels() == 4)
+            cvtColor(frame, bgr, COLOR_BGRA2BGR);
+        else
+            bgr = frame;
+        Mat inputBlob = cv::dnn::blobFromImage(bgr, inScaleFactor, inSize, meanVal, false, false);
 
-vector<Rect> FaceDetector::detect(Mat &frame){
-
-    vector<Rect> bboxs;
-    Mat bgr;
-    if(frame.channels() == 4)
-        cvtColor(frame, bgr, COLOR_BGRA2BGR);
-    else
-        bgr = frame;
-    Mat inputBlob = cv::dnn::blobFromImage(bgr, inScaleFactor, inSize, meanVal, false, false);
-
-    net.setInput(inputBlob, "data"); //set the network input
+        net.setInput(inputBlob, "data"); //set the network input
 
 //    if (net.getLayer(0) -> outputNameToIndex("im_info") != -1){
 //        net.setInput(inputBlob);
@@ -42,31 +34,42 @@ vector<Rect> FaceDetector::detect(Mat &frame){
 //    else
 //        net.setInput(inputBlob, "data");
 
-    //! [Set input blob]
+        //! [Set input blob]
 
-    //! [Make forward pass]
-    Mat detection = net.forward("detection_out");
-    Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
+        //! [Make forward pass]
+        Mat detection = net.forward("detection_out");
+        Mat detectionMat(detection.size[2], detection.size[3], CV_32F, detection.ptr<float>());
 
-    for(int i = 0; i < detectionMat.rows; i++)
-    {
-        float confidence = detectionMat.at<float>(i, 2);
-
-        if(confidence > confidenceThreshold)
+        for(int i = 0; i < detectionMat.rows; i++)
         {
-            int xLeftBottom = static_cast<int>(detectionMat.at<float>(i, 3) * frame.cols);
-            int yLeftBottom = static_cast<int>(detectionMat.at<float>(i, 4) * frame.rows);
-            int xRightTop = static_cast<int>(detectionMat.at<float>(i, 5) * frame.cols);
-            int yRightTop = static_cast<int>(detectionMat.at<float>(i, 6) * frame.rows);
+            float confidence = detectionMat.at<float>(i, 2);
 
-            Rect object((int)xLeftBottom, (int)yLeftBottom,
-                        (int)(xRightTop - xLeftBottom),
-                        (int)(yRightTop - yLeftBottom));
-            bboxs.push_back(object);
+            if(confidence > confidenceThreshold)
+            {
+                int xLeftBottom = static_cast<int>(detectionMat.at<float>(i, 3) * frame.cols);
+                int yLeftBottom = static_cast<int>(detectionMat.at<float>(i, 4) * frame.rows);
+                int xRightTop = static_cast<int>(detectionMat.at<float>(i, 5) * frame.cols);
+                int yRightTop = static_cast<int>(detectionMat.at<float>(i, 6) * frame.rows);
 
+                Rect object((int)xLeftBottom, (int)yLeftBottom,
+                            (int)(xRightTop - xLeftBottom),
+                            (int)(yRightTop - yLeftBottom));
+                bboxs.push_back(object);
+
+            }
         }
+
+        return bboxs;
+
     }
 
-    return bboxs;
-
 }
+
+//FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
+//
+//          meanVal(127.5, 127.5, 127.5), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
+//
+//    net = cv::dnn::readNetFromCaffe(caffeConfigFile, caffeWeightFile);
+//
+//}
+

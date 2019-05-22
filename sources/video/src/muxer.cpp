@@ -8,8 +8,7 @@ namespace picamera{
 
     MuxerContext::MuxerContext(char *out_file, const int &width, const int &height, const int64_t &bit_rate,
                                const int &gop_size, AVRational frame_rate, AVRational src_tb, AVRational dst_tb):
-                               src_time_base(src_tb) {
-
+                               src_time_base(src_tb){
         avformat_alloc_output_context2(&fmt_ctx, ofmt, NULL, out_file);
         if(!fmt_ctx){
             throw VideoError("Couldn't Create Format Context");
@@ -130,7 +129,8 @@ namespace picamera{
     }
 
     void VideoMuxer::flush() {
-        ctx->encode_frame(NULL);
+        if(ctx)
+            ctx->encode_frame(NULL);
     }
 
     int VideoMuxer::muxing(AVFrame *frame) {
@@ -138,9 +138,10 @@ namespace picamera{
             ctx = std::make_unique<MuxerContext>(out_file, src_stream->codecpar->width, src_stream->codecpar->height,
                                                  bit_rate, gop_size, frame_rate,
                                                  src_stream->time_base, time_base);
+            start_time = frame->pts;
         }
         AVFrame *f = transform_frame(frame);
-        f->pts = f->pts - src_stream->start_time;
+        f->pts = f->pts - start_time;
         return ctx->encode_frame(f);
     }
 

@@ -117,9 +117,9 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
 
     update_time();
     AVFrame *f = transform_frame(frame);
+    if(start_time == std::numeric_limits<int64_t>::min())
+        start_time = f->pts;
     bool write = need_write();
-
-    f->pts = f->pts - src_stream->start_time;
 
     if(write){
         if(!ctx){
@@ -127,6 +127,8 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
             ctx = std::make_unique<MuxerContext>((char *)output_path.c_str(), dst_width, dst_height,
                                                  bit_rate, gop_size, frame_rate,
                                                  src_stream->time_base, time_base);
+
+            start_time = f->pts;
         }
         else if(now_info->tm_mday != now_day){
             ctx->encode_frame(NULL);
@@ -134,13 +136,16 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
             ctx.reset(new MuxerContext((char *)output_path.c_str(), dst_width, dst_height,
                                        bit_rate, gop_size, frame_rate,
                                        src_stream->time_base, time_base));
+            start_time = f->pts;
         }
 
+        f->pts = f->pts - start_time;
         return ctx->encode_frame(f);
     }
     else{
         if(ctx){
             ctx->encode_frame(NULL);
+            start_time = std::numeric_limits<int64_t>::min();
             ctx.reset();
         }
         return AVERROR_EOF;

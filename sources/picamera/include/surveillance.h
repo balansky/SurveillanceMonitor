@@ -1,11 +1,10 @@
 #ifndef PICAMERA_MOTION_H
 #define PICAMERA_MOTION_H
 
-#include "opencv2/imgproc.hpp"
-#include "opencv2/videoio.hpp"
-#include "opencv2/highgui.hpp"
+//#include "opencv2/imgproc.hpp"
+//#include "opencv2/videoio.hpp"
+//#include "opencv2/highgui.hpp"
 #include "opencv2/video/background_segm.hpp"
-#include "opencv2/tracking.hpp"
 #include <iostream>
 #include <string>
 #include <time.h>

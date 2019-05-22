@@ -43,9 +43,7 @@ int main(int argc, char** argv){
 
 
     avdevice_register_all();
-//    char *in_file = "/home/andy/Videos/ttt.mp4";
     char *in_file = "/dev/video0";
-//    char *out_file = "/home/andy/Videos/out.avi";
     char *out_file = "/home/andy/Videos";
     VideoTransCoder vt(in_file);
     vt.add_muxer(make_unique<MotionMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));

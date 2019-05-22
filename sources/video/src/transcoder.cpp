@@ -49,9 +49,9 @@ namespace picamera{
                     break;
                 if(!muxers.empty())
                     encode(frame);
-                ++cnt;
             }
-            if(cnt >= 100)
+            ++cnt;
+            if(cnt >= 500)
                 break;
         }
 

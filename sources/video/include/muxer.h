@@ -6,6 +6,7 @@
 #define PICAMERA_MUXER_H
 
 #include "video.h"
+#include <limits>
 
 namespace picamera{
 
@@ -33,7 +34,7 @@ namespace picamera{
         AVPacket *pkt = NULL;
 
         AVRational src_time_base;
-        size_t pts = 0;
+
 
         MuxerContext(char *out_file, const int &width, const int &height, const int64_t &bit_rate, const int &gop_size,
                      AVRational frame_rate, AVRational src_tb, AVRational dst_tb);
@@ -56,6 +57,8 @@ namespace picamera{
         AVRational frame_rate;
 
         std::unique_ptr<MuxerContext> ctx;
+
+        int64_t start_time = std::numeric_limits<int64_t>::min();
 
     public:
 

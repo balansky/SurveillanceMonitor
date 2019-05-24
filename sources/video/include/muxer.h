@@ -10,16 +10,6 @@
 
 namespace picamera{
 
-//    struct CodecConfigure{
-//
-//        int width;
-//        int height;
-//        int gop_size;
-//        int64_t bit_rate;
-//        AVRational time_base;
-//        AVRational frame_rate;
-//
-//    };
 
     struct MuxerContext{
 
@@ -51,16 +41,16 @@ namespace picamera{
         char *out_file;
         AVStream *src_stream;
 
-        int bit_rate;
-        int gop_size;
-        AVRational time_base;
-        AVRational frame_rate;
-
         std::unique_ptr<MuxerContext> ctx;
 
         int64_t start_time = std::numeric_limits<int64_t>::min();
 
     public:
+
+        int bit_rate;
+        int gop_size;
+        AVRational time_base;
+        AVRational frame_rate;
 
         VideoMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate);
 
@@ -76,13 +66,15 @@ namespace picamera{
 
     class VideoRescaleMuxer: public VideoMuxer {
     protected:
-        int dst_width;
-        int dst_height;
 
         AVFrame *frame;
         struct SwsContext *img_convert_ctx;
 
     public:
+
+        int dst_width;
+        int dst_height;
+
         VideoRescaleMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
                           int bit_rate, int gop_size, AVRational frame_rate);
         ~VideoRescaleMuxer();

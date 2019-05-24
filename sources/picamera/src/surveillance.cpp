@@ -6,6 +6,7 @@ namespace picamera{
 
 SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height, int bit_rate,
                                      int gop_size, AVRational frame_rate): dst_height(dst_height),dst_width(dst_width),
+                                     m_tracker(nullptr), o_tracker(nullptr), need_write(true),
                                      VideoMuxer(out_file, src_stream, bit_rate, gop_size, frame_rate) {
 
     time(&now);
@@ -78,7 +79,40 @@ void SurveillanceMuxer::add_timestamp() {
 
 }
 
+void SurveillanceMuxer::add_motion_tracker(picamera::MotionTracker *tracker) {
+    m_tracker = tracker;
+}
+
+void SurveillanceMuxer::add_object_tracker(picamera::ObjectTracker *tracker) {
+    o_tracker = tracker;
+}
+
+bool SurveillanceMuxer::has_motion() {
+    if(m_tracker){
+        return m_tracker->track(mat);
+    }
+    else{
+        return true;
+    }
+
+}
+
+bool SurveillanceMuxer::has_objects() {
+    if(o_tracker){
+        return o_tracker->track(mat);
+    }
+    else{
+        return true;
+    }
+}
+
 void SurveillanceMuxer::transform_mat() {
+    if(has_motion()){
+        need_write = has_objects();
+    }
+    else{
+        need_write = false;
+    }
     add_timestamp();
 }
 
@@ -97,9 +131,9 @@ AVFrame * SurveillanceMuxer::transform_frame(AVFrame *frame) {
     return out_frame;
 }
 
-bool SurveillanceMuxer::need_write() {
-    return true;
-}
+//bool SurveillanceMuxer::need_write() {
+//    return true;
+//}
 
 std::string SurveillanceMuxer::get_output_path() {
     string date_str(date_buf);
@@ -117,11 +151,9 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
 
     update_time();
     AVFrame *f = transform_frame(frame);
-    if(start_time == std::numeric_limits<int64_t>::min())
-        start_time = f->pts;
-    bool write = need_write();
+//    bool write = need_write();
 
-    if(write){
+    if(need_write){
         if(!ctx){
             string output_path = get_output_path();
             ctx = std::make_unique<MuxerContext>((char *)output_path.c_str(), dst_width, dst_height,
@@ -145,7 +177,6 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
     else{
         if(ctx){
             ctx->encode_frame(NULL);
-            start_time = std::numeric_limits<int64_t>::min();
             ctx.reset();
         }
         return AVERROR_EOF;
@@ -153,66 +184,66 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
 }
 
 
-MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height, int bit_rate,
-                         int gop_size, AVRational frame_rate):
-                         SurveillanceMuxer(out_file, src_stream,
-                         dst_width, dst_height, bit_rate, gop_size, frame_rate),motion_fails(0),motion_detected(false) {
-
-    p_MOG2 = createBackgroundSubtractorMOG2();
-    element = getStructuringElement(0, Size(3, 3), Point(1,1) );
-    motion_delay = 10 * frame_rate.num;
-    threshold = dst_width*dst_height*0.002;
-}
-
-MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate):
-                         MotionMuxer(out_file, src_stream, src_stream->codecpar->width, src_stream->codecpar->height,
-                                     bit_rate, gop_size, frame_rate) {}
-
-
-void MotionMuxer::update_background() {
-
-    p_MOG2->apply(mat, fg_mask_MOG2);
-    p_MOG2->getBackgroundImage(bg_mask);
-}
-
-bool MotionMuxer::has_motion() {
-    update_background();
-
-    morphologyEx(fg_mask_MOG2, fg_mask_MOG2, 2, element);
-
-    findContours (fg_mask_MOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
-
-    for(int i = 0; i< contours.size(); i++) {
-        if(contourArea(contours[i]) < threshold) {
-            continue;
-        }
-        return true;
-    }
-    return false;
-}
-
-bool MotionMuxer::need_write() {
-
-    bool check = false;
-    if(has_motion()){
-        if(!motion_detected){
-            motion_detected = true;
-        }
-        motion_fails = 0;
-        check = true;
-    }
-    else if(motion_detected){
-        if(motion_fails < motion_delay){
-            ++motion_fails;
-            check = true;
-        }
-        else{
-            motion_detected = false;
-            motion_fails = 0;
-        }
-    }
-    return check;
-}
+//MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height, int bit_rate,
+//                         int gop_size, AVRational frame_rate):
+//                         SurveillanceMuxer(out_file, src_stream,
+//                         dst_width, dst_height, bit_rate, gop_size, frame_rate),motion_fails(0),motion_detected(false) {
+//
+//    p_MOG2 = createBackgroundSubtractorMOG2();
+//    element = getStructuringElement(0, Size(3, 3), Point(1,1) );
+//    motion_delay = 10 * frame_rate.num;
+//    threshold = dst_width*dst_height*0.002;
+//}
+//
+//MotionMuxer::MotionMuxer(char *out_file, AVStream *src_stream, int bit_rate, int gop_size, AVRational frame_rate):
+//                         MotionMuxer(out_file, src_stream, src_stream->codecpar->width, src_stream->codecpar->height,
+//                                     bit_rate, gop_size, frame_rate) {}
+//
+//
+//void MotionMuxer::update_background() {
+//
+//    p_MOG2->apply(mat, fg_mask_MOG2);
+//    p_MOG2->getBackgroundImage(bg_mask);
+//}
+//
+//bool MotionMuxer::has_motion() {
+//    update_background();
+//
+//    morphologyEx(fg_mask_MOG2, fg_mask_MOG2, 2, element);
+//
+//    findContours (fg_mask_MOG2, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+//
+//    for(int i = 0; i< contours.size(); i++) {
+//        if(contourArea(contours[i]) < threshold) {
+//            continue;
+//        }
+//        return true;
+//    }
+//    return false;
+//}
+//
+//bool MotionMuxer::need_write() {
+//
+//    bool check = false;
+//    if(has_motion()){
+//        if(!motion_detected){
+//            motion_detected = true;
+//        }
+//        motion_fails = 0;
+//        check = true;
+//    }
+//    else if(motion_detected){
+//        if(motion_fails < motion_delay){
+//            ++motion_fails;
+//            check = true;
+//        }
+//        else{
+//            motion_detected = false;
+//            motion_fails = 0;
+//        }
+//    }
+//    return check;
+//}
 
 
 }

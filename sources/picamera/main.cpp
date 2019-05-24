@@ -2,13 +2,7 @@
 #include "PiCamera.h"
 #include <unistd.h>
 #include <thread>
-//#include "opencv2/imgproc.hpp"
-//#include "opencv2/videoio.hpp"
-//#include "opencv2/highgui.hpp"
-//#include "opencv2/video/background_segm.hpp"
-//#include "opencv2/tracking.hpp"
 
-//#include "transcoder.h"
 #include "surveillance.h"
 using namespace picamera;
 
@@ -41,12 +35,33 @@ bool thread_alive = true;
 
 int main(int argc, char** argv){
 
+     CommandLineParser parser(argc, argv, params);
+
+     if (parser.get<bool>("help"))
+     {
+         parser.printMessage();
+         return 0;
+     }
 
     avdevice_register_all();
     char *in_file = "/dev/video0";
     char *out_file = "/home/andy/Videos";
+    int frame_rate = 25;
+    int tole_sec = 10;
+    int detect_rate = 20;
+
+
+    auto confidence_threshold = parser.get<float>("min_confidence");
+
+
     VideoTransCoder vt(in_file);
-    vt.add_muxer(make_unique<MotionMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));
+    SurveillanceMuxer muxer(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1));
+
+    MotionTracker m_tracker(muxer.dst_height, muxer.dst_width, frame_rate, 10);
+    ObjectTracker o_tracker(detect_rate);
+//    FaceDetector *f_detector = new FaceDetector(MODEL_PROTO, MODEL_BINARY, confidence_threshold);
+
+//    vt.add_muxer(make_unique<MotionMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));
 //    vt.add_muxer(out_file, 400000, 10, av_make_q(25, 1));
     vt.transcoding();
 //    VideoTransCoder vt(in_file, out_file, 224, 168, AV_PIX_FMT_YUV420P);

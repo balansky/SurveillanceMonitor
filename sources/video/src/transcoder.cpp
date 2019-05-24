@@ -6,21 +6,21 @@
 
 namespace picamera{
 
-    void VideoTransCoder::add_muxer(Muxer muxer) {
-        muxers.push_back(std::move(muxer));
+    void VideoTransCoder::add_muxer(VideoMuxer *muxer) {
+        muxers.push_back(muxer);
     }
 
-    void VideoTransCoder::add_muxer(char *out_file, int bit_rate, int gop_size, AVRational frame_rate) {
-        if(in_stream->codec->pix_fmt != AV_PIX_FMT_YUV420P){
-            muxers.push_back(std::make_unique<VideoRescaleMuxer>(out_file, in_stream,
-                    in_stream->codecpar->width, in_stream->codecpar->height, bit_rate, gop_size, frame_rate));
-        }
-        else{
-            muxers.push_back(std::make_unique<VideoMuxer>(
-                    out_file, in_stream, bit_rate, gop_size, frame_rate));
-        }
-
-    }
+//    void VideoTransCoder::add_muxer(char *out_file, int bit_rate, int gop_size, AVRational frame_rate) {
+//        if(in_stream->codec->pix_fmt != AV_PIX_FMT_YUV420P){
+//            muxers.push_back(std::make_unique<VideoRescaleMuxer>(out_file, in_stream,
+//                    in_stream->codecpar->width, in_stream->codecpar->height, bit_rate, gop_size, frame_rate));
+//        }
+//        else{
+//            muxers.push_back(std::make_unique<VideoMuxer>(
+//                    out_file, in_stream, bit_rate, gop_size, frame_rate));
+//        }
+//
+//    }
 
     void VideoTransCoder::flush() {
         for(int i = 0; i < muxers.size(); i++){

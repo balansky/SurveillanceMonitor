@@ -1,15 +1,12 @@
 #ifndef PICAMERA_MOTION_H
 #define PICAMERA_MOTION_H
 
-//#include "opencv2/imgproc.hpp"
-//#include "opencv2/videoio.hpp"
-//#include "opencv2/highgui.hpp"
-#include "opencv2/video/background_segm.hpp"
 #include <iostream>
 #include <string>
 #include <time.h>
 
 #include "detector.h"
+#include "tracker.h"
 #include "transcoder.h"
 #include "utils.h"
 
@@ -31,8 +28,6 @@ namespace picamera{
     class SurveillanceMuxer:public VideoMuxer{
 
     protected:
-        int dst_width;
-        int dst_height;
 
         AVFrame *mid_frame;
         AVFrame *out_frame;
@@ -46,7 +41,16 @@ namespace picamera{
         char date_buf[11];
         char datetime_buf[9];
 
+        bool need_write;
+
     public:
+
+        int dst_width;
+        int dst_height;
+
+        MotionTracker *m_tracker;
+        ObjectTracker *o_tracker;
+
         SurveillanceMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
                           int bit_rate, int gop_size, AVRational frame_rate);
         SurveillanceMuxer(char *out_file, AVStream *src_stream,
@@ -55,8 +59,13 @@ namespace picamera{
 
         virtual void update_time();
         virtual void add_timestamp();
+        virtual void add_motion_tracker(MotionTracker *tracker);
+        virtual void add_object_tracker(ObjectTracker *tracker);
         virtual void transform_mat();
-        virtual bool need_write();
+
+        virtual bool has_motion();
+        virtual bool has_objects();
+//        virtual bool need_write();
         virtual AVFrame* transform_frame(AVFrame *frame);
 
         virtual std::string get_output_path();
@@ -66,31 +75,31 @@ namespace picamera{
 
     };
 
-    class MotionMuxer: public SurveillanceMuxer{
-
-    protected:
-        int motion_delay;
-        int motion_fails;
-        bool motion_detected;
-        Mat fg_mask_MOG2;
-        Mat bg_mask;
-        Ptr<BackgroundSubtractor> p_MOG2;
-        Mat element;
-        vector <vector<Point>>contours;
-        double threshold;
-
-    public:
-
-        MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
-                    int bit_rate, int gop_size, AVRational frame_rate);
-        MotionMuxer(char *out_file, AVStream *src_stream,
-                    int bit_rate, int gop_size, AVRational frame_rate);
-        virtual void update_background();
-        virtual bool has_motion();
-        virtual bool need_write();
-        virtual ~MotionMuxer(){};
-
-    };
+//    class MotionMuxer: public SurveillanceMuxer{
+//
+//    protected:
+//        int motion_delay;
+//        int motion_fails;
+//        bool motion_detected;
+//        Mat fg_mask_MOG2;
+//        Mat bg_mask;
+//        Ptr<BackgroundSubtractor> p_MOG2;
+//        Mat element;
+//        vector <vector<Point>>contours;
+//        double threshold;
+//
+//    public:
+//
+//        MotionMuxer(char *out_file, AVStream *src_stream, int dst_width, int dst_height,
+//                    int bit_rate, int gop_size, AVRational frame_rate);
+//        MotionMuxer(char *out_file, AVStream *src_stream,
+//                    int bit_rate, int gop_size, AVRational frame_rate);
+//        virtual void update_background();
+//        virtual bool has_motion();
+//        virtual bool need_write();
+//        virtual ~MotionMuxer(){};
+//
+//    };
 
 }
 

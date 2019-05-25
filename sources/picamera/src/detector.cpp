@@ -6,8 +6,7 @@
 namespace picamera{
 
 
-
-    FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
+    FaceDetector::FaceDetector(String caffeConfigFile, String caffeWeightFile, float confidenceThreshold):
 
             meanVal(104.0, 177.0, 123.0), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
 
@@ -66,12 +65,4 @@ namespace picamera{
     }
 
 }
-
-//FaceDetector::FaceDetector(String& caffeConfigFile, String& caffeWeightFile, float confidenceThreshold):
-//
-//          meanVal(127.5, 127.5, 127.5), confidenceThreshold(confidenceThreshold), inSize(300, 300) {
-//
-//    net = cv::dnn::readNetFromCaffe(caffeConfigFile, caffeWeightFile);
-//
-//}
 

@@ -50,7 +50,6 @@ SurveillanceMuxer::SurveillanceMuxer(char *out_file, AVStream *src_stream, int b
 
 SurveillanceMuxer::~SurveillanceMuxer() {
 
-//    delete now_info;
     sws_freeContext(mid_convert_ctx);
     av_frame_free(&mid_frame);
 
@@ -111,7 +110,8 @@ void SurveillanceMuxer::transform_mat() {
         need_write = has_objects();
     }
     else{
-        need_write = false;
+        need_write = o_tracker->tracking();
+
     }
     add_timestamp();
 }
@@ -131,10 +131,6 @@ AVFrame * SurveillanceMuxer::transform_frame(AVFrame *frame) {
     return out_frame;
 }
 
-//bool SurveillanceMuxer::need_write() {
-//    return true;
-//}
-
 std::string SurveillanceMuxer::get_output_path() {
     string date_str(date_buf);
     string datetime_str(datetime_buf);
@@ -151,7 +147,6 @@ int SurveillanceMuxer::muxing(AVFrame *frame) {
 
     update_time();
     AVFrame *f = transform_frame(frame);
-//    bool write = need_write();
 
     if(need_write){
         if(!ctx){

@@ -76,6 +76,8 @@ namespace picamera{
 
         void reset_tracker();
 
+        bool tracking();
+
         void add_targets(Mat &mat);
 
         bool track(Mat &mat);

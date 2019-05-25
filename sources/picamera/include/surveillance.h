@@ -5,7 +5,6 @@
 #include <string>
 #include <time.h>
 
-#include "detector.h"
 #include "tracker.h"
 #include "transcoder.h"
 #include "utils.h"
@@ -65,7 +64,7 @@ namespace picamera{
 
         virtual bool has_motion();
         virtual bool has_objects();
-//        virtual bool need_write();
+
         virtual AVFrame* transform_frame(AVFrame *frame);
 
         virtual std::string get_output_path();
@@ -187,5 +186,4 @@ namespace picamera{
 //        virtual bool needWrite();
 //
 //};
-
-#endif 
+#endif

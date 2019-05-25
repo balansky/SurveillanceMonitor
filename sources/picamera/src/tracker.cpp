@@ -72,6 +72,11 @@ namespace picamera{
     void ObjectTracker::reset_tracker(){
         delete tracker;
         tracker = new MultiTracker_Alt();
+        cnt = 0;
+    }
+
+    bool ObjectTracker::tracking(){
+        return cnt > 0;
     }
 
     bool ObjectTracker::track(cv::Mat &mat) {

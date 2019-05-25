@@ -1,9 +1,8 @@
-// #include "surveillance.h"
 #include "PiCamera.h"
 #include <unistd.h>
 #include <thread>
-
 #include "surveillance.h"
+
 using namespace picamera;
 
 const char* params
@@ -48,7 +47,7 @@ int main(int argc, char** argv){
     char *out_file = "/home/andy/Videos";
     int frame_rate = 25;
     int tole_sec = 10;
-    int detect_rate = 20;
+    int detect_rate = 50;
 
 
     auto confidence_threshold = parser.get<float>("min_confidence");
@@ -57,9 +56,13 @@ int main(int argc, char** argv){
     VideoTransCoder vt(in_file);
     SurveillanceMuxer muxer(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1));
 
-    MotionTracker m_tracker(muxer.dst_height, muxer.dst_width, frame_rate, 10);
+    MotionTracker m_tracker(muxer.dst_height, muxer.dst_width, frame_rate, tole_sec);
     ObjectTracker o_tracker(detect_rate);
-//    FaceDetector *f_detector = new FaceDetector(MODEL_PROTO, MODEL_BINARY, confidence_threshold);
+    FaceDetector f_detector(MODEL_PROTO, MODEL_BINARY, confidence_threshold);
+    o_tracker.add_detector(&f_detector);
+    muxer.add_motion_tracker(&m_tracker);
+    muxer.add_object_tracker(&o_tracker);
+    vt.add_muxer(&muxer);
 
 //    vt.add_muxer(make_unique<MotionMuxer>(out_file, vt.in_stream, 400000, 10, av_make_q(25, 1)));
 //    vt.add_muxer(out_file, 400000, 10, av_make_q(25, 1));
